@@ -278,15 +278,20 @@ rtp_keepalive=20
         identifier = int(device['id'])
         caller_id = safe(device_numbers.get(username, os.environ['GOSIP_OUTBOUND_CALLER_ID']), NUMBER)
         outgoing = f"twilio-out-{identifier}" if username in device_numbers and username != trunk_user else "twilio-out"
-        dialplan += f"""
-[from-phone-{identifier}]
-exten => _+ZXXXXXXX.,1,Set(GROUP()=phone-{identifier})
+        dialplan += f"\n[from-phone-{identifier}]\n"
+        # Enumerate valid E.164 lengths instead of relying on a trailing-dot
+        # pattern. Asterisk then routes each complete international number
+        # directly and leaves malformed/partial dial strings to the 484 fallback.
+        for digit_count in range(8, 16):
+            pattern = "_+[1-9]" + "X" * (digit_count - 1)
+            dialplan += f"""exten => {pattern},1,Set(GROUP()=phone-{identifier})
  same => n,GotoIf($[${{GROUP_COUNT(phone-{identifier})}} > 2]?busy)
  same => n,Set(CALLERID(num)={caller_id})
  same => n,Dial(PJSIP/${{EXTEN}}@{outgoing},60)
  same => n,Hangup()
  same => n(busy),Hangup(17)
-exten => _.,1,Hangup(28)
+"""
+        dialplan += f"""exten => _.,1,Hangup(28)
 
 [sms-{int(device['id'])}]
 exten => _+ZXXXXXXX.,1,Set(GOSIP_SMS_BODY=${{BASE64_ENCODE(${{MESSAGE(body)}})}})
