@@ -15,6 +15,18 @@ import (
 
 var e164Destination = regexp.MustCompile(`^\+[1-9][0-9]{7,14}$`)
 
+func twilioSIPDomainForAccount(ctx context.Context, deps *Dependencies, accountSID string) string {
+	primarySID, _ := deps.Config.TwilioCredentials()
+	if accountSID == primarySID {
+		return deps.Config.TwilioSIPDomain
+	}
+	domain, err := deps.DB.Config.Get(ctx, "pbx_twilio_domain_name_"+accountSID)
+	if err != nil {
+		return ""
+	}
+	return domain
+}
+
 // sipEndpoint accepts only an ordinary user at the configured Twilio domain or
 // one of its edge-specific hosts. Arbitrary SIP destinations are never dialed.
 func sipEndpoint(value, domain string) (string, bool) {
@@ -52,22 +64,33 @@ func sipEndpoint(value, domain string) (string, bool) {
 // Twilio authenticates SIP credentials; Leadomi SIP validates the signed webhook and
 // permits only a known device, configured caller ID, and E.164 destination.
 func (h *WebhookHandler) VoiceOutgoing(w http.ResponseWriter, r *http.Request) {
-	if r.ParseForm() != nil || !h.validateSignature(r) {
+	if r.ParseForm() != nil {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	sid, _ := h.deps.Config.TwilioCredentials()
-	if r.FormValue("AccountSid") != sid {
+	accountSID := r.FormValue("AccountSid")
+	sid, token := h.deps.Config.TwilioCredentialsFor(accountSID)
+	domain := twilioSIPDomainForAccount(r.Context(), h.deps, accountSID)
+	if accountSID == "" || sid != accountSID || token == "" || domain == "" || !h.validateSignature(r) {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	username, valid := sipEndpoint(r.FormValue("From"), h.deps.Config.TwilioSIPDomain)
+	username, valid := sipEndpoint(r.FormValue("From"), domain)
+	primarySID, _ := h.deps.Config.TwilioCredentials()
+	if valid && accountSID != primarySID {
+		var assignedAccount string
+		err := h.deps.DB.Conn().QueryRowContext(r.Context(), `
+			SELECT a.twilio_account_sid FROM sip_accounts a
+			JOIN devices d ON d.id=a.device_id
+			WHERE d.username=? AND a.enabled=1 AND a.state='ready'`, username).Scan(&assignedAccount)
+		valid = err == nil && assignedAccount == accountSID
+	}
 	device, err := h.deps.DB.Devices.GetByUsername(r.Context(), username)
 	if !valid || err != nil {
 		h.respondTwiML(w, h.errorTwiML("Unknown softphone"))
 		return
 	}
-	number, valid := sipEndpoint(r.FormValue("To"), h.deps.Config.TwilioSIPDomain)
+	number, valid := sipEndpoint(r.FormValue("To"), domain)
 	if !valid || !e164Destination.MatchString(number) {
 		h.respondTwiML(w, h.errorTwiML("Dial the full international number starting with plus"))
 		return
@@ -85,6 +108,16 @@ func (h *WebhookHandler) VoiceOutgoing(w http.ResponseWriter, r *http.Request) {
 	if err != nil || !did.VoiceEnabled || !e164Destination.MatchString(did.Number) {
 		h.respondTwiML(w, h.errorTwiML("Outbound caller ID is not configured"))
 		return
+	}
+	if accountSID != primarySID {
+		var assignedAccount string
+		err := h.deps.DB.Conn().QueryRowContext(r.Context(), `
+			SELECT twilio_account_sid FROM sip_accounts
+			WHERE number=? AND enabled=1 AND state='ready'`, callerID).Scan(&assignedAccount)
+		if err != nil || assignedAccount != accountSID {
+			h.respondTwiML(w, h.errorTwiML("Outbound caller ID is not assigned to this Twilio account"))
+			return
+		}
 	}
 	h.recordVoiceCall(r.Context(), r.FormValue("CallSid"), "outbound", did.Number, number, did.ID, &device.ID)
 	h.respondTwiML(w, `<Response><Dial callerId="`+escapeXML(did.Number)+`"><Number>`+escapeXML(number)+`</Number></Dial></Response>`)
