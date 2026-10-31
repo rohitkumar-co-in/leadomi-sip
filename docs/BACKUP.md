@@ -26,11 +26,15 @@ sudo systemctl status gosip-backup.timer
 
 The job runs daily02:15UTC (07:45IST), with up to five minutes jitter. Root-only
 archives in `/var/backups/gosip` retain30days. Each contains `gosip.db`,
-`delivery.db`, and `credentials.json`, using SQLite's online backup API and
-integrity checks. The first database includes users, routing, call/SMS history,
+`delivery.db`, `credentials.json`, and, when configured, `twilio-accounts.json`,
+using SQLite's online backup API and integrity checks. The first database includes users, routing, call/SMS history,
 saved activity actors and configuration audit. PBX state includes offline SMS
 delivery progress and dedicated outbound SIP credentials. Files are0600 and
 the directory0700. The dashboard records the last successful host backup.
+
+When secondary Twilio accounts are connected, the archive also contains their
+Auth Tokens in `twilio-accounts.json`. Treat those archives as provider secrets
+and encrypt any off-server copy.
 
 On-demand **Dashboard** database backups are separate and do not constitute a
 full host/PBX recovery archive. Use the business job described here for
@@ -59,7 +63,9 @@ For an actual incident:
    data. Record the archive timestamp and Git revision.
 2. Restore `gosip.db` into the Go data volume with ownership writable by UID1000
    and mode0600. Restore `delivery.db` and `credentials.json` into the private PBX
-   volume, mode0600. Preserve media directories separately if recovering them.
+   volume, mode0600. Restore `twilio-accounts.json` to `/app/data` in the Go
+   data volume, mode0600, if it is present in the archive. Preserve media
+   directories separately if recovering them.
 3. Restore the matching Coolify environment and trusted certificate files.
 4. Compare current Twilio number callbacks and credentials with the restored
    assignments. Provider state is external and is not rolled back by SQLite.

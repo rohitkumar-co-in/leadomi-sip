@@ -1,0 +1,2 @@
+-- SQLite cannot safely remove this column on all supported versions. Keep it
+-- as compatibility metadata when rolling back application binaries.

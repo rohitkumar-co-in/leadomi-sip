@@ -180,10 +180,10 @@ func (h *WebhookHandler) VoicemailRecording(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Request transcription if enabled
-	if h.deps.Twilio != nil {
+	if client := h.deps.TwilioForAccountForDID(r.Context(), didID); client != nil {
 		transcriptionEnabled, _ := h.deps.DB.Config.Get(r.Context(), "transcription_enabled")
 		if transcriptionEnabled == "true" {
-			safeGo(func() { h.deps.Twilio.RequestTranscription(recordingSID, voicemail.ID) })
+			safeGo(func() { client.RequestTranscription(recordingSID, voicemail.ID) })
 		}
 	}
 
@@ -344,7 +344,9 @@ func (h *WebhookHandler) SMSStatus(w http.ResponseWriter, r *http.Request) {
 // Helper methods
 
 func (h *WebhookHandler) validateSignature(r *http.Request) bool {
-	_, authToken := h.deps.Config.TwilioCredentials()
+	r.ParseForm()
+	accountSID := r.FormValue("AccountSid")
+	_, authToken := h.deps.Config.TwilioCredentialsFor(accountSID)
 	if authToken == "" {
 		return false
 	}

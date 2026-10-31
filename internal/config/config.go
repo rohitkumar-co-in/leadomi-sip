@@ -83,6 +83,7 @@ type Config struct {
 	twilioMu         sync.RWMutex
 	TwilioAccountSID string
 	TwilioAuthToken  string
+	TwilioAccounts   map[string]string // Account SID to Auth Token; never serialized to API responses.
 
 	// Email settings
 	SMTPHost     string
@@ -135,6 +136,7 @@ func Load() *Config {
 		// These are typically loaded from database after initial setup
 		TwilioAccountSID: getEnv("TWILIO_ACCOUNT_SID", ""),
 		TwilioAuthToken:  getEnv("TWILIO_AUTH_TOKEN", ""),
+		TwilioAccounts:   make(map[string]string),
 
 		SMTPHost:     getEnv("SMTP_HOST", ""),
 		SMTPPort:     getEnvInt("SMTP_PORT", 587),

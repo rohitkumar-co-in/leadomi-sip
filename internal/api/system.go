@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
+	"io"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -486,6 +487,112 @@ func (h *SystemHandler) GetSetupStatus(w http.ResponseWriter, r *http.Request) {
 		"setup_completed":   setupCompleted == "true",
 		"twilio_configured": sid != "" && token != "",
 	})
+}
+
+// ListTwilioAccounts returns account SIDs only; account tokens are never read back.
+func (h *SystemHandler) ListTwilioAccounts(w http.ResponseWriter, r *http.Request) {
+	ids := h.deps.Config.TwilioAccountSIDs()
+	WriteJSON(w, http.StatusOK, map[string]interface{}{"data": ids})
+}
+
+// AddTwilioAccount validates an account token with Twilio before persisting it.
+func (h *SystemHandler) AddTwilioAccount(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		AccountSID        string `json:"account_sid"`
+		AuthToken         string `json:"auth_token"`
+		DomainSID         string `json:"domain_sid"`
+		CredentialListSID string `json:"credential_list_sid"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2048))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&req) != nil || !resourceSID.MatchString(req.AccountSID) || !strings.HasPrefix(req.AccountSID, "AC") || !resourceSID.MatchString(req.DomainSID) || !strings.HasPrefix(req.DomainSID, "SD") || !resourceSID.MatchString(req.CredentialListSID) || !strings.HasPrefix(req.CredentialListSID, "CL") || strings.TrimSpace(req.AuthToken) == "" {
+		WriteValidationError(w, "A Twilio Account SID, Auth Token, SIP Domain SID, and Credential List SID are required", nil)
+		return
+	}
+	primarySID, _ := h.deps.Config.TwilioCredentials()
+	if req.AccountSID == primarySID {
+		WriteValidationError(w, "This is already the primary Twilio account", nil)
+		return
+	}
+	target := "https://api.twilio.com/2010-04-01/Accounts/" + req.AccountSID + ".json"
+	probe, err := http.NewRequestWithContext(r.Context(), http.MethodGet, target, nil)
+	if err != nil {
+		WriteValidationError(w, "Invalid Twilio account credentials", nil)
+		return
+	}
+	probe.SetBasicAuth(req.AccountSID, req.AuthToken)
+	client := &http.Client{Timeout: 15 * time.Second}
+	res, err := client.Do(probe)
+	if err != nil {
+		WriteError(w, http.StatusBadGateway, "TWILIO_UNAVAILABLE", "Twilio could not be reached to verify the credentials", nil)
+		return
+	}
+	io.Copy(io.Discard, io.LimitReader(res.Body, 4096))
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		WriteValidationError(w, "Twilio rejected these credentials or the Account SID", nil)
+		return
+	}
+	verify := func(path string, target interface{}) error {
+		check, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.twilio.com/2010-04-01/Accounts/"+req.AccountSID+path, nil)
+		if err != nil {
+			return err
+		}
+		check.SetBasicAuth(req.AccountSID, req.AuthToken)
+		response, err := client.Do(check)
+		if err != nil {
+			return err
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			return fmt.Errorf("resource unavailable")
+		}
+		return json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(target)
+	}
+	var domain struct {
+		Name   string `json:"domain_name"`
+		Secure bool   `json:"secure"`
+		VoiceURL string `json:"voice_url"`
+	}
+	if err := verify("/SIP/Domains/"+req.DomainSID+".json", &domain); err != nil || !domain.Secure || domain.Name == "" || strings.TrimSuffix(domain.VoiceURL, "/") != strings.TrimSuffix(h.deps.Config.PublicURL, "/")+"/api/webhooks/voice/outgoing" {
+		WriteValidationError(w, "The SIP Domain must be secure and its outgoing Voice URL must point to this Leadomi server", nil)
+		return
+	}
+	for _, kind := range []string{"Calls", "Registrations"} {
+		var mappings struct {
+			Contents []struct {
+				SID string `json:"sid"`
+			} `json:"contents"`
+		}
+		path := "/SIP/Domains/" + req.DomainSID + "/Auth/" + kind + "/CredentialListMappings.json?PageSize=1000"
+		if err := verify(path, &mappings); err != nil {
+			WriteValidationError(w, "Could not verify SIP authentication settings", nil)
+			return
+		}
+		attached := false
+		for _, entry := range mappings.Contents {
+			attached = attached || entry.SID == req.CredentialListSID
+		}
+		if !attached {
+			WriteValidationError(w, "Attach the Credential List to both Calls and Registrations on the SIP Domain first", nil)
+			return
+		}
+	}
+	if err := h.deps.Config.SaveTwilioAccount(req.AccountSID, req.AuthToken); err != nil {
+		WriteError(w, http.StatusInternalServerError, ErrCodeInternal, "The Twilio account could not be saved securely", nil)
+		return
+	}
+	if twilioClient := h.deps.TwilioForAccount(req.AccountSID); twilioClient != nil {
+		twilioClient.UpdateCredentials(req.AccountSID, req.AuthToken)
+	}
+	for key, value := range map[string]string{"pbx_twilio_domain_sid_" + req.AccountSID: req.DomainSID, "pbx_twilio_credential_list_sid_" + req.AccountSID: req.CredentialListSID, "pbx_twilio_domain_name_" + req.AccountSID: domain.Name} {
+		if err := h.deps.DB.Config.Set(r.Context(), key, value); err != nil {
+			WriteError(w, http.StatusInternalServerError, ErrCodeInternal, "The account was connected, but its SIP resource metadata could not be saved", nil)
+			return
+		}
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	WriteJSON(w, http.StatusCreated, map[string]string{"account_sid": req.AccountSID, "status": "connected"})
 }
 
 // CompleteSetup handles initial system setup (same as SetupWizard)

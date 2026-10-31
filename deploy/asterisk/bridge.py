@@ -77,7 +77,7 @@ def reload_sip():
     cli("module reload res_pjsip_endpoint_identifier_ip.so")
 
 
-def render(devices, device_numbers=None):
+def render(devices, device_numbers=None, device_accounts=None, account_domains=None):
     public_ip = str(ipaddress.ip_address(os.environ["PBX_PUBLIC_IP"]))
     safe(DOMAIN, re.compile(r"^[a-zA-Z0-9.-]+$"))
     trunk_domain = safe(os.environ["TWILIO_SIP_DOMAIN"], re.compile(r"^[a-zA-Z0-9.-]+$"))
@@ -86,6 +86,10 @@ def render(devices, device_numbers=None):
     incoming_user = safe(os.environ["GOSIP_PBX_TRUNK_USER"])
     incoming_password = safe(os.environ["GOSIP_PBX_TRUNK_PASSWORD"], PASSWORD)
     device_numbers = device_numbers or {}
+    device_accounts = device_accounts or {}
+    account_domains = account_domains or {}
+    primary_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+    account_domains.setdefault(primary_sid, trunk_domain)
     device_passwords = json.loads(os.getenv("PBX_TWILIO_DEVICE_PASSWORDS") or "{}")
     credential_file = STATE / "credentials.json"
     if credential_file.exists():
@@ -193,6 +197,8 @@ exten => _.,1,Hangup(21)
         identifier = int(device["id"])
         digest = safe(device["password_hash"], re.compile(r"^[a-fA-F0-9]{32}$"))
         outgoing = "twilio-out"
+        account_sid = device_accounts.get(username, primary_sid)
+        device_domain = safe(account_domains.get(account_sid, trunk_domain), re.compile(r"^[a-zA-Z0-9.-]+$"))
         if username in device_numbers and username != trunk_user:
             outgoing = f"twilio-out-{identifier}"
             outgoing_password = safe(device_passwords[username], PASSWORD)
@@ -204,16 +210,20 @@ username={username}
 password={outgoing_password}
 
 [{outgoing}]
+type=aor
+contact=sip:{device_domain}:5061\\;transport=tls\\;secure=true
+
+[{outgoing}]
 type=endpoint
 transport=tls
 context=deny
 media_address={public_ip}
-aors=twilio-out
+aors={outgoing}
 disallow=all
 allow=ulaw,alaw
 outbound_auth={outgoing}-auth
 from_user={username}
-from_domain={trunk_domain}
+from_domain={device_domain}
 direct_media=no
 rtp_symmetric=yes
 force_rport=yes
@@ -297,7 +307,23 @@ def configure():
         device_numbers = json.loads(row[0]) if row else {}
         if not isinstance(device_numbers, dict):
             raise ValueError("Phone number assignments must be an object")
-    pjsip, dialplan = render(devices, device_numbers)
+        row = conn.execute("SELECT value FROM config WHERE key='pbx_device_accounts'").fetchone()
+        device_accounts = json.loads(row[0]) if row else {}
+        if not isinstance(device_accounts, dict):
+            raise ValueError("Phone account assignments must be an object")
+        primary = conn.execute("SELECT value FROM config WHERE key='pbx_primary_twilio_account_sid'").fetchone()
+        if primary and primary[0]:
+            primary_sid = primary[0]
+        account_domains = {}
+        for key, value in conn.execute("SELECT key,value FROM config WHERE key LIKE 'pbx_twilio_domain_name_%'"):
+            account_domains[key.removeprefix("pbx_twilio_domain_name_")] = value
+        if primary_sid:
+            account_domains[primary_sid] = os.environ["TWILIO_SIP_DOMAIN"]
+        for username in device_numbers:
+            account_sid = device_accounts.get(username, primary_sid)
+            if account_sid and account_sid not in account_domains:
+                raise ValueError("Assigned Twilio account has no configured SIP domain")
+    pjsip, dialplan = render(devices, device_numbers, device_accounts, account_domains)
     digest = hashlib.sha256((pjsip + dialplan).encode()).hexdigest()
     old = STATE / "config.sha256"
     if old.exists() and old.read_text() == digest and (CONF / "pjsip.conf").exists():

@@ -53,6 +53,10 @@ func main() {
 		slog.Error("Failed to load Twilio environment file")
 		os.Exit(1)
 	}
+	if err := cfg.LoadTwilioAccounts(); err != nil {
+		slog.Error("Failed to load secondary Twilio credentials")
+		os.Exit(1)
+	}
 	if err := database.Config.MigrateTwilioEnv(cfg); err != nil {
 		slog.Error("Failed to migrate Twilio credentials to environment file")
 		os.Exit(1)

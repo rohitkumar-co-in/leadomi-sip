@@ -25,6 +25,12 @@ matches = [n for n in names if n.startswith(prefix)]
 if len(matches) != 1:
     raise SystemExit('Expected exactly one production PBX container')
 pbx = matches[0]
+project = subprocess.check_output(['docker', 'inspect', '-f', '{{ index .Config.Labels "com.docker.compose.project" }}', pbx], text=True).strip()
+gosip_names = subprocess.check_output(['docker', 'ps', '--filter', 'label=com.docker.compose.project=' + project,
+    '--filter', 'label=com.docker.compose.service=gosip', '--format', '{{.Names}}'], text=True).splitlines()
+if len(gosip_names) != 1:
+    raise SystemExit('Expected exactly one Go backend container in the PBX project')
+gosip = gosip_names[0]
 code = '''import sqlite3,os,shutil,json
 from pathlib import Path
 os.umask(0o077)
@@ -45,8 +51,14 @@ now = datetime.datetime.now(datetime.timezone.utc)
 destination = root / ('gosip-' + now.strftime('%Y%m%d-%H%M%S') + '.tar.gz')
 with tempfile.TemporaryDirectory(dir=root) as temp:
     subprocess.run(['docker', 'cp', pbx + ':/var/lib/gosip-pbx/backup-stage/.', temp], check=True, stdout=subprocess.DEVNULL)
+    files = ['gosip.db', 'delivery.db', 'credentials.json']
+    has_secondary = subprocess.run(['docker', 'exec', gosip, 'test', '-f', '/app/data/twilio-accounts.json'], check=False).returncode == 0
+    if has_secondary:
+        subprocess.run(['docker', 'cp', gosip + ':/app/data/twilio-accounts.json', str(Path(temp) / 'twilio-accounts.json')], check=True, stdout=subprocess.DEVNULL)
+        (Path(temp) / 'twilio-accounts.json').chmod(0o600)
+        files.append('twilio-accounts.json')
     with tarfile.open(destination, 'w:gz') as archive:
-        for name in ('gosip.db', 'delivery.db', 'credentials.json'):
+        for name in files:
             archive.add(Path(temp) / name, arcname=name)
 destination.chmod(0o600)
 # Only this backup job's archives in its fixed private directory are retained.
