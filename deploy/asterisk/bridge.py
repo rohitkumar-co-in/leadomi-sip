@@ -286,9 +286,7 @@ exten => _.,1,GotoIf($[${{REGEX("^[+][1-9][0-9]{{7,14}}$" ${{EXTEN}})}} = 1]?val
  same => n(valid),Set(GROUP()=phone-{identifier})
  same => n,GotoIf($[${{GROUP_COUNT(phone-{identifier})}} > 2]?busy)
  same => n,Set(CALLERID(num)={caller_id})
- same => n,Verbose(1,Leadomi outbound attempt on phone account {identifier})
  same => n,Dial(PJSIP/${{EXTEN}}@{outgoing},60)
- same => n,Verbose(1,Leadomi outbound result status=${{DIALSTATUS}} cause=${{HANGUPCAUSE}})
  same => n,Hangup()
  same => n(busy),Hangup(17)
  same => n(invalid),Hangup(28)
@@ -568,7 +566,7 @@ def main():
             latest = conn.execute("SELECT COALESCE(MAX(id),0) FROM messages").fetchone()[0]
         queue.execute("INSERT INTO meta VALUES('cursor',?)", (str(latest),))
         queue.commit()
-    PROCESS = subprocess.Popen(["asterisk", "-f", "-g", "-v"])
+    PROCESS = subprocess.Popen(["asterisk", "-f", "-g"])
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, lambda *_: STOP.set())
     agi = socketserver.ThreadingTCPServer(("127.0.0.1", 4573), AGI)
