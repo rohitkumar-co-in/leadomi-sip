@@ -88,8 +88,11 @@ func NewDependencies(cfg *config.Config, database *db.DB, sipServer *sip.Server,
 
 // TwilioForAccount returns a client scoped to the requested account SID.
 func (d *Dependencies) TwilioForAccount(accountSID string) TwilioClient {
-	if d == nil || d.Config == nil {
+	if d == nil {
 		return nil
+	}
+	if d.Config == nil {
+		return d.Twilio
 	}
 	if accountSID == "" {
 		accountSID, _ = d.Config.TwilioCredentials()
