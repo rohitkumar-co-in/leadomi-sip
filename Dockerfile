@@ -7,7 +7,7 @@ WORKDIR /app/frontend
 RUN npm install --global pnpm@10.11.0
 
 # Copy frontend package files
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
