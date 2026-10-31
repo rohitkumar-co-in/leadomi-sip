@@ -45,8 +45,14 @@ func (h *VoicemailHandler) Audio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	accountSID := ""
-	if vm.DIDID != nil {
-		h.deps.DB.Conn().QueryRowContext(r.Context(), "SELECT twilio_account_sid FROM sip_accounts WHERE number=(SELECT number FROM dids WHERE id=?)", *vm.DIDID).Scan(&accountSID)
+	if vm.CDRID != nil {
+		h.deps.DB.Conn().QueryRowContext(r.Context(), `
+			SELECT a.twilio_account_sid
+			FROM sip_accounts a
+			JOIN dids d ON d.number = a.number
+			JOIN cdrs c ON c.did_id = d.id
+			WHERE c.id = ?
+		`, *vm.CDRID).Scan(&accountSID)
 	}
 	sid, token := h.deps.Config.TwilioCredentialsFor(accountSID)
 	target, ok := recordingURL(vm.AudioURL, sid)
