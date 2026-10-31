@@ -12,9 +12,14 @@ feature. Preserve provider connections, phone passwords and existing volumes.
    and PBX integration tests without paid calls/SMS. Scan reachable dependency
    vulnerabilities when changing dependencies.
 4. Push the reviewed revision, deploy to the existing app, verify service health,
-   read-only callback mappings and existing SIP authentication. Reconnect phones.
-5. Let the operator perform paid manual acceptance tests. Verify backups after
-   deployment and keep external recovery copies. Document remaining limitations.
+   read-only callback mappings and existing SIP authentication. For a secondary
+   Twilio account change, confirm the connected Account SID, assigned number's
+   owner account, that account's secure domain/credential mappings, and its
+   resulting Call Log entries. Reconnect phones only if their local settings
+   changed.
+5. Let the operator perform paid manual acceptance tests. A healthy dashboard
+   alone does not verify an outbound carrier leg. Verify backups after deployment
+   and keep external recovery copies. Document remaining limitations.
 
 See [Coolify](COOLIFY_DEPLOYMENT.md),
 [backups](BACKUP.md), [API](API.md).

@@ -97,6 +97,9 @@ before provisioning.
 
 ## First phone and validation
 
+To keep a phone number in a separate Twilio account, connect that account
+before assigning its number; follow [multiple Twilio account setup](MULTIPLE_TWILIO_ACCOUNTS.md).
+
 Follow [Administration](ADMINISTRATION.md) to create a SIP user and explicitly
 assign an existing number. Download the one-time phone setup file and configure
 Linphone as in [Softphones](TWILIO_SOFTPHONES.md). Check health, use manual

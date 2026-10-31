@@ -26,7 +26,9 @@ until the exclusion is explicitly removed. There is no force override.
 
 Only trusted web administrators can access business-wide history. Phone users
 do not need a web account. Administrator password changes revoke old sessions.
-Twilio API credentials stay in backend runtime environment.
+The primary Twilio Auth Token is a backend runtime value; secondary account
+tokens are stored in `twilio-accounts.json`. See the [credential storage
+boundary](TWILIO_CREDENTIALS.md#storage-boundaries).
 
 **Settings** restricts outgoing E.164 prefixes (`+44`, `+91`, etc.) and the
 SMS-per-minute submission limit (default20 per number). Empty prefixes allow
@@ -48,6 +50,21 @@ exist. Assignment never edits a Messaging Service inbound policy automatically;
 an overriding service blocks it. Failed credential revocation requires a
 Disable retry. Do not expose private SIP traces or container environments in
 public logs because they can contain secrets.
+
+### Secondary-account outbound call failure
+
+Check **SIP Users** for the number's assigned Twilio Account SID. Then check
+that account's SIP Domain, Calls Credential List mapping, outgoing Voice URL,
+and provider call logs. A PBX TLS connection by itself does not prove the Twilio
+SIP credential was accepted.
+
+If the PBX reports `CHANUNAVAIL` with Q.850 cause 21 and Twilio has no call
+record, inspect whether the user's dedicated outbound credential still matches
+between the Twilio Credential List and PBX `credentials.json`. Keep the local
+phone password unchanged during this repair. Same-number user edits and phone
+password resets preserve or affect only local phone authentication; they do not
+resynchronize that provider credential. Follow the [credential recovery
+procedure](TWILIO_CREDENTIALS.md#recovery-when-outbound-sip-authentication-drifts).
 
 ## Recovery and limitations
 

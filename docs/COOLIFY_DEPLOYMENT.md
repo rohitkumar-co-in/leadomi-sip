@@ -44,6 +44,19 @@ backward compatible; never blindly restore a database into running containers.
 The Twilio Account SID/Auth Token belong in runtime environment, not Docker
 build arguments or committed `.env` files. Keep the PBX unused API alias empty.
 Do not expose private PBX API8088 or Go SIP5060 through Coolify port mappings.
+For additional Twilio accounts, the Auth Token is kept in the Go data volume's
+`twilio-accounts.json` private file. The current Coolify Compose setup mounts
+that volume read-only at `/gosip` in the PBX container, so PBX container root
+can read the file even though its Twilio API environment aliases are empty.
+Treat the PBX container as inside the trusted secret boundary and restrict
+container/volume access accordingly. See [security](SECURITY.md) and
+[multiple-account setup](MULTIPLE_TWILIO_ACCOUNTS.md).
+
+After connecting a secondary account, verify its Account SID appears in the
+console, assign a number from that account to a SIP user, and inspect that
+account's Twilio Call Logs during a controlled test. A healthy dashboard and a
+successful incoming webhook do not by themselves prove that outbound SIP
+authentication to the assigned account works.
 
 ## Certificate renewal and health
 

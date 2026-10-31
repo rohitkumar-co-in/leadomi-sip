@@ -9,8 +9,11 @@ history and configuration. Phone users have separate SIP identities.
    username. Usernames start with a letter and use 3–64 letters, digits,
    underscores or hyphens. Internal names (`global`, `tls`, `deny`, `twilio-*`)
    are reserved. Existing Twilio usernames are not taken over.
-2. Select a number already owned by your Twilio account with both Voice and SMS
-   capability. A number assigned to another active local user is unavailable.
+2. Connect other Twilio accounts first if their numbers need to stay there; use
+   [multiple-account setup](MULTIPLE_TWILIO_ACCOUNTS.md). Select a number already
+   owned by any connected Twilio account with both Voice
+   and SMS capability. Check the account SID beside the number before continuing.
+   A number assigned to another active local user is unavailable.
    Leadomi SIP does not buy, port, release or automatically assign numbers.
 3. Enter an optional custom phone password (12–72 printable ASCII characters,
    no spaces), or leave it empty to generate a strong password.
@@ -23,7 +26,9 @@ history and configuration. Phone users have separate SIP identities.
 6. The server creates the dedicated Twilio SIP credential, stores a separate
    private PBX password, sets the selected number's call/SMS/status webhooks,
    clears its TwiML application links, creates a local default route, and
-   assigns caller ID/SMS sender. Download the phone setup file immediately.
+   assigns caller ID/SMS sender. The outbound credential belongs to the
+   selected number's Twilio account and is separate from the phone password.
+   Download the phone setup file immediately.
 
 **Assignment can disconnect other inbound integrations.** Do not confirm when
 you need to keep those connections. Messaging Services with their own inbound

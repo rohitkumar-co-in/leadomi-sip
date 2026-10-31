@@ -64,6 +64,15 @@ Historical actors are not guessed; incoming assigned accounts are labeled.
 
 ## Provider/private endpoints
 
+Additional Twilio accounts are managed with administrator-only
+`GET /system/twilio-accounts` and `POST /system/twilio-accounts`. The list
+returns connected Account SIDs and metadata, never Auth Tokens. The create
+request accepts `account_sid`, `auth_token`, `domain_sid`, and
+`credential_list_sid`; the server validates that the secure SIP Domain points
+to `/api/webhooks/voice/outgoing` and that its Credential List is attached to
+both Calls and Registrations. See [multiple-account setup](MULTIPLE_TWILIO_ACCOUNTS.md)
+for provider-side configuration and credential recovery.
+
 Twilio POST callbacks: `/webhooks/voice/incoming`, `/voice/outgoing`,
 `/voice/status`, `/voice/dial-complete`, `/sms/incoming`, `/sms/status`,
 and `/voicemail/recording` under `/api/webhooks`. Signed callbacks are validated;

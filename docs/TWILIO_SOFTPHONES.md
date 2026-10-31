@@ -21,7 +21,9 @@ Create an ordinary SIP account using the downloaded setup file:
 | Basic conversation CPIM | Off |
 
 Set **both** proxy fields; using only a registrar can send calls/messages to the
-wrong address. Keep the certificate hostname intact. Enable G.711 PCMU/PCMA
+wrong address. Even when a user's number belongs to a secondary Twilio account,
+use the Leadomi host shown in the setup file, not that account's Twilio SIP
+Domain. Keep the certificate hostname intact. Enable G.711 PCMU/PCMA
 when client codec controls are available. Menu labels vary by Linphone version.
 There is one registered phone per SIP user; registration on another phone can
 replace the first phone's contact.
@@ -44,7 +46,6 @@ operator. No automated calls or SMS are required for a deployment smoke check.
 Android battery restrictions can prevent background ringing; allow background
 activity and reopen Linphone after a server restart.
 
-Existing deployment: `sip.leadomi.com` uses usernames `gosipmobile` (number ending
-6354) and `gosipsecond` (ending2200). Branding updates preserve those identifiers
-and existing phone passwords. Do not assign their numbers again merely to test
-the new UI.
+Existing phone identities and passwords are preserved during deployment. Do
+not reassign an existing number merely to test the multi-account feature; check
+the assigned Twilio Account SID in **SIP Users** instead.

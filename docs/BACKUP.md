@@ -47,8 +47,11 @@ No off-server destination is configured on the existing VPS. Arrange an
 access-controlled external store and verify upload/retention independently.
 A same-VPS backup cannot protect against loss of that VPS. Keep a protected
 export of Coolify configuration/environment, certificate/DNS recovery access,
-and the matching repository revision. The archive excludes Twilio API tokens,
-the incoming-trunk secret and deployed TLS private keys.
+and the matching repository revision. The archive excludes the primary Twilio
+API token from runtime configuration, the incoming-trunk secret and deployed
+TLS private keys. If secondary accounts are connected, their Auth Tokens are
+included in `twilio-accounts.json`; treat the archive as a provider-secret
+backup and encrypt/access-control it.
 
 ## Restore validation and recovery
 
