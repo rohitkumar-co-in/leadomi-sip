@@ -61,10 +61,7 @@ func (h *BusinessHandler) audit(ctx context.Context, actor int64, action, subjec
 
 // Errors deliberately omit upstream response bodies, URLs and credentials.
 func (h *BusinessHandler) twilio(ctx context.Context, method, path string, form url.Values, result interface{}) error {
-	return h.twilioAccount(ctx, "", method, path, form, result)
-}
-func (h *BusinessHandler) twilioAccount(ctx context.Context, accountSID, method, path string, form url.Values, result interface{}) error {
-	sid, token := h.deps.Config.TwilioCredentialsFor(accountSID)
+	sid, token := h.deps.Config.TwilioCredentials()
 	if !resourceSID.MatchString(sid) || token == "" {
 		return fmt.Errorf("Twilio credentials are unavailable")
 	}
@@ -93,7 +90,6 @@ func (h *BusinessHandler) twilioAccount(ctx context.Context, accountSID, method,
 }
 
 type businessNumber struct {
-	AccountSID       string `json:"account_sid"`
 	SID              string `json:"sid"`
 	Number           string `json:"phone_number"`
 	Name             string `json:"friendly_name"`
@@ -111,7 +107,7 @@ type businessNumber struct {
 	} `json:"capabilities"`
 }
 
-func (h *BusinessHandler) numbersForAccount(ctx context.Context, accountSID string) ([]businessNumber, error) {
+func (h *BusinessHandler) numbers(ctx context.Context) ([]businessNumber, error) {
 	var all []businessNumber
 	path := "/IncomingPhoneNumbers.json?PageSize=1000"
 	for page := 0; page < 20; page++ {
@@ -119,14 +115,14 @@ func (h *BusinessHandler) numbersForAccount(ctx context.Context, accountSID stri
 			Numbers []businessNumber `json:"incoming_phone_numbers"`
 			Next    string           `json:"next_page_uri"`
 		}
-		if err := h.twilioAccount(ctx, accountSID, http.MethodGet, path, nil, &list); err != nil {
+		if err := h.twilio(ctx, http.MethodGet, path, nil, &list); err != nil {
 			return nil, err
 		}
 		all = append(all, list.Numbers...)
 		if list.Next == "" {
 			return all, nil
 		}
-		sid, _ := h.deps.Config.TwilioCredentialsFor(accountSID)
+		sid, _ := h.deps.Config.TwilioCredentials()
 		prefix := "/2010-04-01/Accounts/" + sid
 		if !strings.HasPrefix(list.Next, prefix+"/IncomingPhoneNumbers.json?") {
 			return nil, fmt.Errorf("Invalid Twilio pagination")
@@ -134,20 +130,6 @@ func (h *BusinessHandler) numbersForAccount(ctx context.Context, accountSID stri
 		path = strings.TrimPrefix(list.Next, prefix)
 	}
 	return nil, fmt.Errorf("Too many Twilio numbers to import")
-}
-func (h *BusinessHandler) numbers(ctx context.Context) ([]businessNumber, error) {
-	var all []businessNumber
-	for _, sid := range h.deps.Config.TwilioAccountSIDs() {
-		numbers, err := h.numbersForAccount(ctx, sid)
-		if err != nil {
-			return nil, err
-		}
-		for i := range numbers {
-			numbers[i].AccountSID = sid
-		}
-		all = append(all, numbers...)
-	}
-	return all, nil
 }
 func (h *BusinessHandler) Numbers(w http.ResponseWriter, r *http.Request) {
 	numbers, err := h.numbers(r.Context())
@@ -160,15 +142,6 @@ func (h *BusinessHandler) Numbers(w http.ResponseWriter, r *http.Request) {
 func (h *BusinessHandler) bootstrap(ctx context.Context) error {
 	// Import the two previously configured accounts without changing passwords,
 	// routing, or Twilio settings. All future assignments are transactional.
-	primarySID, _ := h.deps.Config.TwilioCredentials()
-	if primarySID != "" {
-		if err := h.deps.DB.Config.Set(ctx, "pbx_primary_twilio_account_sid", primarySID); err != nil {
-			return err
-		}
-	}
-	if _, err := h.deps.DB.Conn().ExecContext(ctx, "UPDATE sip_accounts SET twilio_account_sid=? WHERE twilio_account_sid=''", primarySID); err != nil {
-		return err
-	}
 	raw, err := h.deps.DB.Config.Get(ctx, "pbx_device_numbers")
 	if err == db.ErrConfigNotFound {
 		return nil
@@ -184,7 +157,7 @@ func (h *BusinessHandler) bootstrap(ctx context.Context) error {
 		if !e164Destination.MatchString(number) {
 			return fmt.Errorf("Invalid existing assignment")
 		}
-		_, err = h.deps.DB.Conn().ExecContext(ctx, "INSERT OR IGNORE INTO sip_accounts(device_id,number,state,twilio_account_sid) SELECT id,?,'ready',? FROM devices WHERE username=?", number, primarySID, user)
+		_, err = h.deps.DB.Conn().ExecContext(ctx, "INSERT OR IGNORE INTO sip_accounts(device_id,number,state) SELECT id,?,'ready' FROM devices WHERE username=?", number, user)
 		if err != nil {
 			return err
 		}
@@ -215,8 +188,7 @@ func (h *BusinessHandler) List(w http.ResponseWriter, r *http.Request) {
 	for _, d := range devices {
 		number, state := "", "pending"
 		enabled := true
-		accountSID := ""
-		err = h.deps.DB.Conn().QueryRowContext(r.Context(), "SELECT number,state,enabled,twilio_account_sid FROM sip_accounts WHERE device_id=?", d.ID).Scan(&number, &state, &enabled, &accountSID)
+		err = h.deps.DB.Conn().QueryRowContext(r.Context(), "SELECT number,state,enabled FROM sip_accounts WHERE device_id=?", d.ID).Scan(&number, &state, &enabled)
 		if err != nil && err != sql.ErrNoRows {
 			WriteInternalError(w)
 			return
@@ -224,22 +196,17 @@ func (h *BusinessHandler) List(w http.ResponseWriter, r *http.Request) {
 		if state == "deleted" {
 			continue
 		}
-		result = append(result, map[string]interface{}{"id": d.ID, "name": d.Name, "username": d.Username, "number": number, "twilio_account_sid": accountSID, "state": state, "enabled": enabled, "online": enabled && online[d.ID], "protected": locks[number]})
+		result = append(result, map[string]interface{}{"id": d.ID, "name": d.Name, "username": d.Username, "number": number, "state": state, "enabled": enabled, "online": enabled && online[d.ID], "protected": locks[number]})
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	WriteJSON(w, 200, map[string]interface{}{"data": result, "server": phoneServer(h.deps.Config.PBXSIPDomain), "proxy": "sip:" + phoneServer(h.deps.Config.PBXSIPDomain) + ":5061;transport=tls"})
 }
-func (h *BusinessHandler) credentialList(ctx context.Context, accountSID string) (string, error) {
-	key := "_" + accountSID
-	primarySID, _ := h.deps.Config.TwilioCredentials()
-	if accountSID == "" || accountSID == primarySID {
-		key = ""
-	}
-	domainSID, err := h.deps.DB.Config.Get(ctx, "pbx_twilio_domain_sid"+key)
+func (h *BusinessHandler) credentialList(ctx context.Context) (string, error) {
+	domainSID, err := h.deps.DB.Config.Get(ctx, "pbx_twilio_domain_sid")
 	if err != nil || !resourceSID.MatchString(domainSID) {
 		return "", fmt.Errorf("Twilio SIP domain must be configured by the server administrator")
 	}
-	listSID, err := h.deps.DB.Config.Get(ctx, "pbx_twilio_credential_list_sid"+key)
+	listSID, err := h.deps.DB.Config.Get(ctx, "pbx_twilio_credential_list_sid")
 	if err != nil || !resourceSID.MatchString(listSID) {
 		return "", fmt.Errorf("Twilio credential list must be configured by the server administrator")
 	}
@@ -247,14 +214,10 @@ func (h *BusinessHandler) credentialList(ctx context.Context, accountSID string)
 		Name   string `json:"domain_name"`
 		Secure bool   `json:"secure"`
 	}
-	if err = h.twilioAccount(ctx, accountSID, "GET", "/SIP/Domains/"+domainSID+".json", nil, &domain); err != nil {
+	if err = h.twilio(ctx, "GET", "/SIP/Domains/"+domainSID+".json", nil, &domain); err != nil {
 		return "", err
 	}
-	wantDomain := h.deps.Config.TwilioSIPDomain
-	if key != "" {
-		wantDomain, err = h.deps.DB.Config.Get(ctx, "pbx_twilio_domain_name"+key)
-	}
-	if err != nil || domain.Name != wantDomain || !domain.Secure {
+	if domain.Name != h.deps.Config.TwilioSIPDomain || !domain.Secure {
 		return "", fmt.Errorf("Twilio SIP domain does not match the secure server configuration")
 	}
 	for _, kind := range []string{"Calls", "Registrations"} {
@@ -263,7 +226,7 @@ func (h *BusinessHandler) credentialList(ctx context.Context, accountSID string)
 				SID string `json:"sid"`
 			} `json:"contents"`
 		}
-		if err = h.twilioAccount(ctx, accountSID, "GET", "/SIP/Domains/"+domainSID+"/Auth/"+kind+"/CredentialListMappings.json?PageSize=1000", nil, &mappings); err != nil {
+		if err = h.twilio(ctx, "GET", "/SIP/Domains/"+domainSID+"/Auth/"+kind+"/CredentialListMappings.json?PageSize=1000", nil, &mappings); err != nil {
 			return "", err
 		}
 		found := false
@@ -278,7 +241,7 @@ func (h *BusinessHandler) credentialList(ctx context.Context, accountSID string)
 	}
 	return listSID, nil
 }
-func (h *BusinessHandler) findCredential(ctx context.Context, accountSID, listSID, user string) (string, error) {
+func (h *BusinessHandler) findCredential(ctx context.Context, listSID, user string) (string, error) {
 	var list struct {
 		Items []struct {
 			SID      string `json:"sid"`
@@ -290,7 +253,7 @@ func (h *BusinessHandler) findCredential(ctx context.Context, accountSID, listSI
 	for page := 0; page < 20; page++ {
 		list.Next = ""
 		list.Items = nil
-		if err := h.twilioAccount(ctx, accountSID, "GET", path, nil, &list); err != nil {
+		if err := h.twilio(ctx, "GET", path, nil, &list); err != nil {
 			return "", err
 		}
 		for _, item := range list.Items {
@@ -301,7 +264,7 @@ func (h *BusinessHandler) findCredential(ctx context.Context, accountSID, listSI
 		if list.Next == "" {
 			return "", nil
 		}
-		sid, _ := h.deps.Config.TwilioCredentialsFor(accountSID)
+		sid, _ := h.deps.Config.TwilioCredentials()
 		prefix := "/2010-04-01/Accounts/" + sid
 		if !strings.HasPrefix(list.Next, prefix+"/SIP/CredentialLists/"+listSID+"/Credentials.json?") {
 			return "", fmt.Errorf("Invalid credential pagination")
@@ -340,7 +303,6 @@ type businessRequest struct {
 	Name         string `json:"name"`
 	Username     string `json:"username"`
 	Number       string `json:"number"`
-	AccountSID   string `json:"account_sid"`
 	Reset        bool   `json:"reset_password"`
 	Password     string `json:"password"`
 	NumberReview string `json:"number_review"`
@@ -420,7 +382,7 @@ func (h *BusinessHandler) Provision(w http.ResponseWriter, r *http.Request) {
 	}
 	var owned *businessNumber
 	for i := range numbers {
-		if numbers[i].Number == req.Number && (req.AccountSID == "" || numbers[i].AccountSID == req.AccountSID) {
+		if numbers[i].Number == req.Number {
 			owned = &numbers[i]
 			break
 		}
@@ -430,10 +392,10 @@ func (h *BusinessHandler) Provision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// A ready user's ordinary edits never touch provider credentials or routing.
-	var oldNumber, oldState, oldAccountSID string
+	var oldNumber, oldState string
 	var oldEnabled bool
 	if device != nil {
-		h.deps.DB.Conn().QueryRowContext(r.Context(), "SELECT number,state,enabled,twilio_account_sid FROM sip_accounts WHERE device_id=?", device.ID).Scan(&oldNumber, &oldState, &oldEnabled, &oldAccountSID)
+		h.deps.DB.Conn().QueryRowContext(r.Context(), "SELECT number,state,enabled FROM sip_accounts WHERE device_id=?", device.ID).Scan(&oldNumber, &oldState, &oldEnabled)
 	}
 	if req.Password != "" && !validPhonePassword(req.Password) {
 		WriteValidationError(w, "Phone password must be 12â€“72 printable ASCII characters without spaces", nil)
@@ -475,16 +437,12 @@ func (h *BusinessHandler) Provision(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 409, "NUMBER_REVIEW_REQUIRED", "Review the number's current connections and explicitly confirm this assignment first. Its configuration may have changed", nil)
 		return
 	}
-	if owned == nil {
-		WriteValidationError(w, "Select a number from a connected Twilio account", nil)
-		return
-	}
-	listSID, err := h.credentialList(r.Context(), owned.AccountSID)
+	listSID, err := h.credentialList(r.Context())
 	if err != nil {
 		WriteError(w, 502, "TWILIO_ERROR", err.Error(), nil)
 		return
 	}
-	credentialSID, err := h.findCredential(r.Context(), owned.AccountSID, listSID, req.Username)
+	credentialSID, err := h.findCredential(r.Context(), listSID, req.Username)
 	if err != nil {
 		WriteError(w, 502, "TWILIO_ERROR", err.Error(), nil)
 		return
@@ -544,7 +502,7 @@ func (h *BusinessHandler) Provision(w http.ResponseWriter, r *http.Request) {
 	var credential struct {
 		SID string `json:"sid"`
 	}
-	if err = h.twilioAccount(r.Context(), owned.AccountSID, "POST", path, form, &credential); err != nil {
+	if err = h.twilio(r.Context(), "POST", path, form, &credential); err != nil {
 		failed(err)
 		return
 	}
@@ -557,34 +515,19 @@ func (h *BusinessHandler) Provision(w http.ResponseWriter, r *http.Request) {
 		failed(err)
 		return
 	}
-	if err = h.configureNumber(r.Context(), *owned); err != nil {
+	if err = h.configureNumber(r.Context(), owned.SID); err != nil {
 		failed(err)
 		return
 	}
-	if err = h.assign(r.Context(), device, req.Name, req.Number, owned.SID, credentialSID, owned.AccountSID, phonePassword); err != nil {
+	if err = h.assign(r.Context(), device, req.Name, req.Number, owned.SID, credentialSID, phonePassword); err != nil {
 		failed(fmt.Errorf("Local number assignment could not be saved"))
 		return
-	}
-	if oldNumber != "" && oldNumber != req.Number && oldState == "ready" && oldEnabled && oldAccountSID != owned.AccountSID {
-		oldList, revokeErr := h.credentialList(r.Context(), oldAccountSID)
-		if revokeErr == nil {
-			var oldCredential string
-			oldCredential, revokeErr = h.findCredential(r.Context(), oldAccountSID, oldList, device.Username)
-			if revokeErr == nil && oldCredential != "" {
-				revokeErr = h.twilioAccount(r.Context(), oldAccountSID, "DELETE", "/SIP/CredentialLists/"+oldList+"/Credentials/"+oldCredential+".json", nil, nil)
-			}
-		}
-		if revokeErr != nil {
-			h.audit(r.Context(), getUserIDFromContext(r.Context()), "provision", device.Username, "previous_twilio_credential_revocation_pending")
-			WriteError(w, 502, "PREVIOUS_CREDENTIAL_REVOCATION_PENDING", "The new number is assigned and working, but the previous Twilio SIP credential could not be removed. Review the audit log and remove it from the old account", nil)
-			return
-		}
 	}
 	h.audit(r.Context(), getUserIDFromContext(r.Context()), "provision", device.Username, "ready")
 	w.Header().Set("Cache-Control", "no-store")
 	WriteJSON(w, 200, map[string]interface{}{"id": device.ID, "username": device.Username, "number": req.Number, "state": "ready", "password": phonePassword, "proxy": "sip:" + phoneServer(h.deps.Config.PBXSIPDomain) + ":5061;transport=tls", "server": phoneServer(h.deps.Config.PBXSIPDomain)})
 }
-func (h *BusinessHandler) assign(ctx context.Context, d *models.Device, name, number, numberSID, credential, accountSID, phonePassword string) error {
+func (h *BusinessHandler) assign(ctx context.Context, d *models.Device, name, number, numberSID, credential, phonePassword string) error {
 	tx, err := h.deps.DB.Conn().BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -625,23 +568,21 @@ func (h *BusinessHandler) assign(ctx context.Context, d *models.Device, name, nu
 	if _, err = tx.ExecContext(ctx, "INSERT INTO routes(did_id,priority,name,condition_type,action_type,action_data,enabled) VALUES(?,0,?,'default','ring',?,1)", didID, "Assigned to "+name, string(action)); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "UPDATE sip_accounts SET number=?,credential_sid=?,twilio_account_sid=?,enabled=1,state='ready',updated_at=CURRENT_TIMESTAMP WHERE device_id=?", number, credential, accountSID, d.ID); err != nil {
+	if _, err = tx.ExecContext(ctx, "UPDATE sip_accounts SET number=?,credential_sid=?,enabled=1,state='ready',updated_at=CURRENT_TIMESTAMP WHERE device_id=?", number, credential, d.ID); err != nil {
 		return err
 	}
-	rows, err := tx.QueryContext(ctx, "SELECT d.username,a.number,a.twilio_account_sid FROM sip_accounts a JOIN devices d ON d.id=a.device_id WHERE a.enabled=1 AND a.state='ready' AND a.number<>''")
+	rows, err := tx.QueryContext(ctx, "SELECT d.username,a.number FROM sip_accounts a JOIN devices d ON d.id=a.device_id WHERE a.enabled=1 AND a.state='ready' AND a.number<>''")
 	if err != nil {
 		return err
 	}
 	assignments := map[string]string{}
-	accounts := map[string]string{}
 	for rows.Next() {
-		var u, n, sid string
-		if err = rows.Scan(&u, &n, &sid); err != nil {
+		var u, n string
+		if err = rows.Scan(&u, &n); err != nil {
 			rows.Close()
 			return err
 		}
 		assignments[u] = n
-		accounts[u] = sid
 	}
 	err = rows.Err()
 	rows.Close()
@@ -650,10 +591,6 @@ func (h *BusinessHandler) assign(ctx context.Context, d *models.Device, name, nu
 	}
 	raw, _ := json.Marshal(assignments)
 	if _, err = tx.ExecContext(ctx, "INSERT INTO config(key,value) VALUES('pbx_device_numbers',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", string(raw)); err != nil {
-		return err
-	}
-	accountRaw, _ := json.Marshal(accounts)
-	if _, err = tx.ExecContext(ctx, "INSERT INTO config(key,value) VALUES('pbx_device_accounts',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", string(accountRaw)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -700,8 +637,8 @@ func (h *BusinessHandler) Disable(w http.ResponseWriter, r *http.Request) {
 		WriteNotFoundError(w, "SIP user")
 		return
 	}
-	var linkedNumber, linkedState, accountSID string
-	if err = h.deps.DB.Conn().QueryRowContext(r.Context(), "SELECT number,state,twilio_account_sid FROM sip_accounts WHERE device_id=?", id).Scan(&linkedNumber, &linkedState, &accountSID); err != nil {
+	var linkedNumber, linkedState string
+	if err = h.deps.DB.Conn().QueryRowContext(r.Context(), "SELECT number,state FROM sip_accounts WHERE device_id=?", id).Scan(&linkedNumber, &linkedState); err != nil {
 		WriteInternalError(w)
 		return
 	}
@@ -754,12 +691,12 @@ func (h *BusinessHandler) Disable(w http.ResponseWriter, r *http.Request) {
 		WriteInternalError(w)
 		return
 	}
-	listSID, err := h.credentialList(r.Context(), accountSID)
+	listSID, err := h.credentialList(r.Context())
 	if err == nil {
 		var credential string
-		credential, err = h.findCredential(r.Context(), accountSID, listSID, device.Username)
+		credential, err = h.findCredential(r.Context(), listSID, device.Username)
 		if err == nil && credential != "" {
-			err = h.twilioAccount(r.Context(), accountSID, "DELETE", "/SIP/CredentialLists/"+listSID+"/Credentials/"+credential+".json", nil, nil)
+			err = h.twilio(r.Context(), "DELETE", "/SIP/CredentialLists/"+listSID+"/Credentials/"+credential+".json", nil, nil)
 		}
 	}
 	if err != nil {

@@ -29,7 +29,6 @@ export interface SystemConfig {
 }
 
 export interface SetupRequest {
-  twilio_account_sid?: string
   twilio_auth_token?: string
   admin_email: string
   admin_password: string

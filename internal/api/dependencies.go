@@ -2,8 +2,6 @@ package api
 
 import (
 	"context"
-	"database/sql"
-	"sync"
 
 	"github.com/rohitkumar-co-in/leadomi-sip/internal/config"
 	"github.com/rohitkumar-co-in/leadomi-sip/internal/db"
@@ -19,8 +17,6 @@ type Dependencies struct {
 	Twilio   TwilioClient
 	Notifier Notifier
 	Config   *config.Config
-	twilioMu sync.Mutex
-	twilioClients map[string]TwilioClient
 }
 
 // TwilioClient interface for Twilio operations
@@ -72,63 +68,11 @@ type Notifier interface {
 
 // NewDependencies creates a new Dependencies instance
 func NewDependencies(cfg *config.Config, database *db.DB, sipServer *sip.Server, twilio TwilioClient, notifier Notifier) *Dependencies {
-	clients := make(map[string]TwilioClient)
-	if sid, _ := cfg.TwilioCredentials(); sid != "" && twilio != nil {
-		clients[sid] = twilio
-	}
 	return &Dependencies{
 		DB:       database,
 		SIP:      sipServer,
 		Twilio:   twilio,
 		Notifier: notifier,
 		Config:   cfg,
-		twilioClients: clients,
 	}
-}
-
-// TwilioForAccount returns a client scoped to the requested account SID.
-func (d *Dependencies) TwilioForAccount(accountSID string) TwilioClient {
-	if d == nil {
-		return nil
-	}
-	if d.Config == nil {
-		return d.Twilio
-	}
-	if accountSID == "" {
-		accountSID, _ = d.Config.TwilioCredentials()
-	}
-	primarySID, _ := d.Config.TwilioCredentials()
-	if d.Twilio != nil && (accountSID == "" || accountSID == primarySID) {
-		return d.Twilio
-	}
-	d.twilioMu.Lock()
-	defer d.twilioMu.Unlock()
-	if d.twilioClients == nil {
-		d.twilioClients = make(map[string]TwilioClient)
-	}
-	if client := d.twilioClients[accountSID]; client != nil {
-		return client
-	}
-	sid, token := d.Config.TwilioCredentialsFor(accountSID)
-	if sid == "" || token == "" {
-		return nil
-	}
-	accountConfig := &config.Config{TwilioAccountSID: sid, TwilioAuthToken: token}
-	client := twilio.NewClient(accountConfig)
-	d.twilioClients[sid] = client
-	return client
-}
-
-func (d *Dependencies) TwilioForAccountForDID(ctx context.Context, didID int64) TwilioClient {
-	if d == nil || d.DB == nil {
-		return nil
-	}
-	var accountSID string
-	if err := d.DB.Conn().QueryRowContext(ctx, "SELECT a.twilio_account_sid FROM sip_accounts a JOIN dids d ON d.number=a.number WHERE d.id=?", didID).Scan(&accountSID); err != nil {
-		if err != sql.ErrNoRows {
-			return nil
-		}
-		return d.TwilioForAccount("")
-	}
-	return d.TwilioForAccount(accountSID)
 }

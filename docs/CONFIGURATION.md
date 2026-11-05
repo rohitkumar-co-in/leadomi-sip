@@ -3,6 +3,8 @@
 The existing `GOSIP_*` environment names and `gosip` SIP realm remain stable.
 Do not rename production volumes, databases, or secret variable names when
 rebranding. Use the same public hostname for HTTPS and phone setup.
+Configure one primary Twilio account per Leadomi installation. The runtime
+environment variables below supply that account's API credentials.
 
 ## Required business deployment variables
 
@@ -37,15 +39,12 @@ spaces (12–72 characters), because only its digest hash enters Asterisk config
 `PBX_TWILIO_DEVICE_PASSWORDS` is an optional JSON map for preserving credentials
 from an existing installation. Leave it empty on a fresh installation. Newly
 provisioned credentials use the private `credentials.json` volume file instead.
-Secondary Account SIDs and Auth Tokens are saved in
-`/app/data/twilio-accounts.json`, outside SQLite. Do not define
-`GOSIP_PBX_UNUSED_API_CREDENTIAL`: its empty alias keeps Twilio API credentials
-out of the PBX environment when Coolify injects app variables.
+Do not define `GOSIP_PBX_UNUSED_API_CREDENTIAL`: its empty alias keeps Twilio
+API credentials out of the PBX service when Coolify injects app variables.
 
 ## Fixed compose settings
 
-The backend listens privately on 8080 and persists `/app/data/gosip.db` and
-secondary Twilio account metadata/secrets.
+The backend listens privately on 8080 and persists `/app/data/gosip.db`.
 The PBX listens publicly on TLS TCP 5061 and media UDP 10000–10100; its private
 health/credential API listens on 8088. Certificates mount from
 `/data/gosip-pbx/certs`. PBX credentials, offline SMS delivery state and backup
@@ -71,9 +70,6 @@ These are usage controls, not monetary caps. Configure spending alerts in
 Twilio separately. **Administrators** controls web access; SIP users are
 separate phone identities and have no web-console login.
 
-The primary Twilio account uses runtime variables (with legacy `/app/data/.env`
-fallback on older installations); secondary account tokens use
-`/app/data/twilio-accounts.json`. Neither token type is stored in SQLite. The
-PBX receives empty Twilio API environment aliases, but its read-only mount of
-the Go data volume makes secondary-token files readable to the PBX container's
-root process. See [Credentials](TWILIO_CREDENTIALS.md) for this trust boundary.
+Twilio credentials prefer runtime variables. An older installation may have
+fallback `/app/data/.env`, mode 0600; runtime credentials override it and are
+not copied into SQLite. See [Credentials](TWILIO_CREDENTIALS.md).

@@ -10,7 +10,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rohitkumar-co-in/leadomi-sip/internal/db"
 	"github.com/rohitkumar-co-in/leadomi-sip/internal/models"
-	"github.com/rohitkumar-co-in/leadomi-sip/internal/twilio"
 )
 
 // isValidPhoneNumber checks that a phone number contains only +, digits, spaces, dashes, and parens.
@@ -233,24 +232,17 @@ func toDIDResponse(did *models.DID) *DIDResponse {
 
 // SyncFromTwilio syncs DIDs from Twilio account
 func (h *DIDHandler) SyncFromTwilio(w http.ResponseWriter, r *http.Request) {
-	if len(h.deps.Config.TwilioAccountSIDs()) == 0 {
+	// Check if Twilio client is available
+	if h.deps.Twilio == nil {
 		WriteError(w, http.StatusServiceUnavailable, "TWILIO_NOT_CONFIGURED", "Twilio is not configured", nil)
 		return
 	}
 
-	var twilioNumbers []twilio.IncomingPhoneNumber
-	for _, accountSID := range h.deps.Config.TwilioAccountSIDs() {
-		client := h.deps.TwilioForAccount(accountSID)
-		if client == nil {
-			WriteError(w, http.StatusServiceUnavailable, "TWILIO_NOT_CONFIGURED", "A connected Twilio account is unavailable", nil)
-			return
-		}
-		numbers, listErr := client.ListIncomingPhoneNumbers(r.Context())
-		if listErr != nil {
-			WriteError(w, http.StatusBadGateway, "TWILIO_ERROR", "Failed to fetch phone numbers from a connected Twilio account", nil)
-			return
-		}
-		twilioNumbers = append(twilioNumbers, numbers...)
+	// Get phone numbers from Twilio
+	twilioNumbers, err := h.deps.Twilio.ListIncomingPhoneNumbers(r.Context())
+	if err != nil {
+		WriteError(w, http.StatusBadGateway, "TWILIO_ERROR", "Failed to fetch phone numbers from Twilio: "+err.Error(), nil)
+		return
 	}
 
 	// Get existing DIDs

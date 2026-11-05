@@ -49,7 +49,7 @@ func (h *PBXHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	did, err := h.deps.DB.DIDs.GetByNumber(r.Context(), number)
-	if err != nil || !did.SMSEnabled || h.deps.TwilioForAccountForDID(r.Context(), did.ID) == nil {
+	if err != nil || !did.SMSEnabled || h.deps.Twilio == nil {
 		WriteError(w, http.StatusServiceUnavailable, ErrCodeBadRequest, "SMS sender is unavailable", nil)
 		return
 	}

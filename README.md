@@ -12,14 +12,10 @@ Repository: https://github.com/rohitkumar-co-in/leadomi-sip
 
 - Inbound and outbound telephone calls over TLS SIP and SRTP audio.
 - SIP MESSAGE ↔ Twilio SMS bridging, including an offline inbound queue.
-- One SIP user, one assigned existing Twilio number from any connected account,
-  one registered phone.
-- Multiple connected Twilio accounts, with each SIP user routed through the
-  account that owns its assigned number.
+- One SIP user, one assigned existing Twilio number, one registered phone.
 - Custom SIP usernames and custom or generated phone passwords.
-- Automatic per-user Twilio SIP credential provisioning after an explicit number
-  assignment review. The outbound credential is separate from the phone login;
-  ordinary same-number edits preserve both and existing provider connections.
+- Automatic dedicated Twilio SIP credential creation after an explicit number
+  assignment review. Ordinary user edits preserve existing provider connections.
 - Read-only inventory and connection checks; no number purchase, porting, or
   automatic reassignment on startup, login, refresh, or deployment.
 - Persistent excluded-number protection with no force bypass, and deletion of
@@ -48,9 +44,7 @@ number replaces its webhooks/application links and local routes: review first.
    reset passwords, disable users, and manage access.
 4. [Phone and console guide](docs/USER_GUIDE.md): Linphone, calling, SMS,
    history, routing, and troubleshooting.
-5. [Additional Twilio accounts](docs/MULTIPLE_TWILIO_ACCOUNTS.md): connect
-   another account and route its number through a SIP user.
-6. [Operations and recovery](docs/BUSINESS_OPERATIONS.md),
+5. [Operations and recovery](docs/BUSINESS_OPERATIONS.md),
    [backups](docs/BACKUP.md), [configuration](docs/CONFIGURATION.md), and
    [supported API](docs/API.md).
 

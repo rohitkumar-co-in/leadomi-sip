@@ -278,8 +278,6 @@ func NewRouter(deps *Dependencies) chi.Router {
 					r.Get("/config", systemHandler.GetConfig)
 					r.Put("/config", systemHandler.UpdateConfig)
 					r.Get("/status", systemHandler.GetStatus)
-					r.Get("/twilio-accounts", systemHandler.ListTwilioAccounts)
-					r.Post("/twilio-accounts", systemHandler.AddTwilioAccount)
 
 					// Backup management
 					r.Route("/backups", func(r chi.Router) {

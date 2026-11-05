@@ -1,2 +1,2 @@
--- SQLite cannot safely remove this column on all supported versions. Keep it
--- as compatibility metadata when rolling back application binaries.
+-- Keep the account identifier column when downgrading binaries. Migration 014
+-- removes the column when the multi-account feature is removed permanently.

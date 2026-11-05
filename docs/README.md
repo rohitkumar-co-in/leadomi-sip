@@ -15,7 +15,6 @@ They do not advertise unfinished features retained in legacy source files.
 | [Configuration](CONFIGURATION.md) | Environment, metadata, certificates, network |
 | [Coolify](COOLIFY_DEPLOYMENT.md) | Deploy and update safely |
 | [Administration](ADMINISTRATION.md) | SIP users, owned number assignment, web admins |
-| [Multiple Twilio accounts](MULTIPLE_TWILIO_ACCOUNTS.md) | Account connection, per-number routing, credential troubleshooting |
 | [User guide](USER_GUIDE.md) | Console, phones, history, troubleshooting |
 | [Softphones](TWILIO_SOFTPHONES.md) | Android Linphone setup and manual tests |
 | [Credentials](TWILIO_CREDENTIALS.md) | Where secrets live and how rotation works |

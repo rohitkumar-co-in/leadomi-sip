@@ -44,17 +44,7 @@ func (h *VoicemailHandler) Audio(w http.ResponseWriter, r *http.Request) {
 		WriteNotFoundError(w, "Voicemail")
 		return
 	}
-	accountSID := ""
-	if vm.CDRID != nil {
-		h.deps.DB.Conn().QueryRowContext(r.Context(), `
-			SELECT a.twilio_account_sid
-			FROM sip_accounts a
-			JOIN dids d ON d.number = a.number
-			JOIN cdrs c ON c.did_id = d.id
-			WHERE c.id = ?
-		`, *vm.CDRID).Scan(&accountSID)
-	}
-	sid, token := h.deps.Config.TwilioCredentialsFor(accountSID)
+	sid, token := h.deps.Config.TwilioCredentials()
 	target, ok := recordingURL(vm.AudioURL, sid)
 	if !ok || token == "" {
 		WriteError(w, 404, "RECORDING_UNAVAILABLE", "Recording is unavailable", nil)

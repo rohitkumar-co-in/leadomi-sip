@@ -16,8 +16,7 @@
   an international `+number`. Status is submission/delivery status, not a read
   receipt. Refresh reloads locally stored history.
 - **Voicemails**: available recordings, duration and provider transcripts.
-- **Settings**: your administrator password, outgoing usage policies, and
-  connected secondary Twilio accounts.
+- **Settings**: your administrator password and outgoing usage policies.
 - **Administrators**: trusted web accounts, separate from phone users.
 
 All web administrators can see business-wide history. Phone users only need
@@ -67,9 +66,6 @@ user and explicitly assigned owned number. SMS is bridged to Twilio's HTTP API;
 ordinary phone carrier SMS is a separate service.
 
 Calls use `+country-code-number`; messages use `sip:+number@your-sip-hostname`.
-For a number owned by a secondary Twilio account, Linphone still uses the
-Leadomi registrar and proxy in its setup file. Leadomi selects the matching
-Twilio account for outbound routing.
 Allow Android background activity and reconnect Linphone after service restarts.
 Offline incoming SMS is queued, but background delivery and ringing depend on
 the phone remaining reachable. Softphone read receipts, typing indicators,
@@ -81,9 +77,7 @@ browser calling, conferencing and transfer controls are not supported here.
 |---|---|
 | Account connection error | Hostname, TLS5061, trusted certificate, username/password and both proxy fields |
 | Incompatible media | Enable SRTP; allow G.711/PCMU/PCMA where the client exposes codec settings |
-| 484 / international-number prompt | Use the full destination with a leading `+`. If it is already E.164, check the PBX outbound leg and the assigned Twilio account's call logs. |
-| Outbound call gets `CHANUNAVAIL`, cause 21, and no Twilio call record | Check the assigned account's Calls Credential List mapping and its dedicated SIP credential. That credential is separate from the Linphone password; see [multiple-account troubleshooting](MULTIPLE_TWILIO_ACCOUNTS.md#troubleshoot-outbound-calls). |
-| Twilio logs a call but it does not ring | Check the Voice URL request/result, the assigned caller ID, destination permissions and child call status in that same account. |
+| 484 / international-number prompt | Both proxy fields; use an actual leading `+` and full country code |
 | One-way or no audio | UDP10000–10100, public IP advertisement, Android network/NAT |
 | Message spinner or failure | Disable CPIM; use `sip:+number@host`; inspect status and username in Activity Log |
 | Incoming SMS missing | Number-level webhook, Messaging Service inbound handler, assigned user's registration |

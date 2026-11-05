@@ -44,7 +44,7 @@ func (h *BusinessHandler) reviewNumber(ctx context.Context, n businessNumber) (n
 			result.Connections = append(result.Connections, entry.label+": "+entry.value)
 		}
 	}
-	sid, token := h.deps.Config.TwilioCredentialsFor(n.AccountSID)
+	sid, token := h.deps.Config.TwilioCredentials()
 	get := func(path string, v interface{}) error {
 		req, _ := http.NewRequestWithContext(ctx, "GET", "https://messaging.twilio.com/v1/"+path, nil)
 		req.SetBasicAuth(sid, token)
@@ -145,7 +145,7 @@ func (h *BusinessHandler) ReviewNumber(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, n := range numbers {
-		if n.Number == number && (r.URL.Query().Get("account_sid") == "" || r.URL.Query().Get("account_sid") == n.AccountSID) {
+		if n.Number == number {
 			review, err := h.reviewNumber(r.Context(), n)
 			if err != nil {
 				WriteError(w, 502, "NUMBER_CHECK_FAILED", err.Error(), nil)
@@ -159,11 +159,11 @@ func (h *BusinessHandler) ReviewNumber(w http.ResponseWriter, r *http.Request) {
 	WriteNotFoundError(w, "Owned Twilio number")
 }
 
-func (h *BusinessHandler) configureNumber(ctx context.Context, number businessNumber) error {
-	if !resourceSID.MatchString(number.SID) || !strings.HasPrefix(h.deps.Config.PublicURL, "https://") {
+func (h *BusinessHandler) configureNumber(ctx context.Context, sid string) error {
+	if !resourceSID.MatchString(sid) || !strings.HasPrefix(h.deps.Config.PublicURL, "https://") {
 		return fmt.Errorf("A public HTTPS URL is required")
 	}
 	// The reviewed provider state was checked before any provisioning writes.
 	base := strings.TrimSuffix(h.deps.Config.PublicURL, "/")
-	return h.twilioAccount(ctx, number.AccountSID, "POST", "/IncomingPhoneNumbers/"+number.SID+".json", map[string][]string{"VoiceUrl": {base + "/api/webhooks/voice/incoming"}, "VoiceMethod": {"POST"}, "SmsUrl": {base + "/api/webhooks/sms/incoming"}, "SmsMethod": {"POST"}, "StatusCallback": {base + "/api/webhooks/voice/status"}, "StatusCallbackMethod": {"POST"}, "VoiceApplicationSid": {""}, "SmsApplicationSid": {""}}, nil)
+	return h.twilio(ctx, "POST", "/IncomingPhoneNumbers/"+sid+".json", map[string][]string{"VoiceUrl": {base + "/api/webhooks/voice/incoming"}, "VoiceMethod": {"POST"}, "SmsUrl": {base + "/api/webhooks/sms/incoming"}, "SmsMethod": {"POST"}, "StatusCallback": {base + "/api/webhooks/voice/status"}, "StatusCallbackMethod": {"POST"}, "VoiceApplicationSid": {""}, "SmsApplicationSid": {""}}, nil)
 }

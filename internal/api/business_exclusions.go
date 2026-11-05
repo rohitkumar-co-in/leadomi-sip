@@ -131,9 +131,9 @@ func (h *BusinessHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		WriteNotFoundError(w, "SIP user")
 		return
 	}
-	var number, state, accountSID string
+	var number, state string
 	var enabled bool
-	if err = h.deps.DB.Conn().QueryRowContext(ctx, "SELECT number,state,enabled,twilio_account_sid FROM sip_accounts WHERE device_id=?", id).Scan(&number, &state, &enabled, &accountSID); err != nil {
+	if err = h.deps.DB.Conn().QueryRowContext(ctx, "SELECT number,state,enabled FROM sip_accounts WHERE device_id=?", id).Scan(&number, &state, &enabled); err != nil {
 		WriteNotFoundError(w, "SIP account")
 		return
 	}
@@ -149,12 +149,12 @@ func (h *BusinessHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 409, "DISABLE_REQUIRED", "Disable this SIP user before deleting it. This prevents leaving an active phone or provider credential", nil)
 		return
 	}
-	list, err := h.credentialList(ctx, accountSID)
+	list, err := h.credentialList(ctx)
 	if err == nil {
 		var credential string
-		credential, err = h.findCredential(ctx, accountSID, list, device.Username)
+		credential, err = h.findCredential(ctx, list, device.Username)
 		if err == nil && credential != "" {
-			err = h.twilioAccount(ctx, accountSID, "DELETE", "/SIP/CredentialLists/"+list+"/Credentials/"+credential+".json", nil, nil)
+			err = h.twilio(ctx, "DELETE", "/SIP/CredentialLists/"+list+"/Credentials/"+credential+".json", nil, nil)
 		}
 	}
 	if err != nil {

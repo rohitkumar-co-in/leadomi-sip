@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -19,22 +18,6 @@ import (
 // MessageHandler handles SMS/MMS message API endpoints
 type MessageHandler struct {
 	deps *Dependencies
-}
-
-
-func (h *MessageHandler) twilioForDID(ctx context.Context, didID *int64) TwilioClient {
-	if didID == nil {
-		return h.deps.TwilioForAccount("")
-	}
-	var accountSID string
-	err := h.deps.DB.Conn().QueryRowContext(ctx, "SELECT a.twilio_account_sid FROM sip_accounts a JOIN dids d ON d.number=a.number WHERE d.id=?", *didID).Scan(&accountSID)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return nil
-		}
-		accountSID = ""
-	}
-	return h.deps.TwilioForAccount(accountSID)
 }
 
 // NewMessageHandler creates a new MessageHandler
@@ -252,9 +235,8 @@ func (h *MessageHandler) Send(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		didID := did.ID
-		if client := h.twilioForDID(ctx, &didID); client != nil {
-			twilioSID, sendErr := client.SendSMS(did.Number, req.ToNumber, req.Body, req.MediaURLs)
+		if h.deps.Twilio != nil {
+			twilioSID, sendErr := h.deps.Twilio.SendSMS(did.Number, req.ToNumber, req.Body, req.MediaURLs)
 			if sendErr != nil {
 				slog.Error("Failed to send message via Twilio", "error", sendErr, "message_id", message.ID)
 				if dbErr := h.deps.DB.Messages.UpdateStatus(ctx, message.ID, "failed"); dbErr != nil {
@@ -643,8 +625,7 @@ func (h *MessageHandler) Resend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := h.twilioForDID(r.Context(), message.DIDID)
-	if client == nil {
+	if h.deps.Twilio == nil {
 		WriteError(w, http.StatusServiceUnavailable, ErrCodeServiceUnavailable, "Twilio client not available", nil)
 		return
 	}
@@ -659,7 +640,7 @@ func (h *MessageHandler) Resend(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Resend the message
-	twilioSID, sendErr := client.SendSMS(message.FromNumber, message.ToNumber, message.Body, mediaURLs)
+	twilioSID, sendErr := h.deps.Twilio.SendSMS(message.FromNumber, message.ToNumber, message.Body, mediaURLs)
 	if sendErr != nil {
 		if dbErr := h.deps.DB.Messages.UpdateStatus(r.Context(), message.ID, "failed"); dbErr != nil {
 			slog.Error("failed to update message status", "error", dbErr, "message_id", message.ID)
@@ -703,14 +684,13 @@ func (h *MessageHandler) SyncFromTwilio(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	client := h.twilioForDID(r.Context(), message.DIDID)
-	if client == nil {
+	if h.deps.Twilio == nil {
 		WriteError(w, http.StatusServiceUnavailable, ErrCodeServiceUnavailable, "Twilio client not available", nil)
 		return
 	}
 
 	// Fetch status from Twilio
-	twilioMsg, err := client.GetMessage(r.Context(), message.MessageSID)
+	twilioMsg, err := h.deps.Twilio.GetMessage(r.Context(), message.MessageSID)
 	if err != nil {
 		WriteError(w, http.StatusBadGateway, ErrCodeBadGateway, "Failed to fetch from Twilio: "+err.Error(), nil)
 		return
@@ -759,14 +739,13 @@ func (h *MessageHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := h.twilioForDID(r.Context(), message.DIDID)
-	if client == nil {
+	if h.deps.Twilio == nil {
 		WriteError(w, http.StatusServiceUnavailable, ErrCodeServiceUnavailable, "Twilio client not available", nil)
 		return
 	}
 
 	// Try to cancel in Twilio
-	if err := client.CancelMessage(r.Context(), message.MessageSID); err != nil {
+	if err := h.deps.Twilio.CancelMessage(r.Context(), message.MessageSID); err != nil {
 		WriteError(w, http.StatusBadGateway, ErrCodeBadGateway, "Failed to cancel in Twilio: "+err.Error(), nil)
 		return
 	}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -53,8 +54,8 @@ func main() {
 		slog.Error("Failed to load Twilio environment file")
 		os.Exit(1)
 	}
-	if err := cfg.LoadTwilioAccounts(); err != nil {
-		slog.Error("Failed to load secondary Twilio credentials")
+	if err := os.Remove(filepath.Join(cfg.DataDir, "twilio-accounts.json")); err != nil && !os.IsNotExist(err) {
+		slog.Error("Failed to remove obsolete secondary Twilio credentials")
 		os.Exit(1)
 	}
 	if err := database.Config.MigrateTwilioEnv(cfg); err != nil {
