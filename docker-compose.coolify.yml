@@ -45,7 +45,7 @@ services:
     volumes:
       - gosip-data:/gosip:ro
       - pbx-data:/var/lib/gosip-pbx
-      - ${PBX_CERTS_HOST_PATH:-/data/gosip-pbx/certs}:/certs:ro
+      - /data/gosip-pbx-second/certs:/certs:ro
     environment:
       GOSIP_URL: http://gosip:8080
       # Coolify injects the application's .env into each service. Override
