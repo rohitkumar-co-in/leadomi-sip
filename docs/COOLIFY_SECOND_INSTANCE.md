@@ -19,6 +19,8 @@ secrets in Coolify's Environment Variables UI; do not commit them to Git.
 | `TWILIO_ACCOUNT_SID` | Second installation's Twilio Account SID | Use the account that owns the second app's phone numbers. |
 | `TWILIO_AUTH_TOKEN` | That account's Auth Token | Secret; Go backend only. |
 | `TWILIO_SIP_DOMAIN` | Its Twilio SIP Domain, e.g. `company2.sip.twilio.com` | Create/configure this in the second Twilio account. |
+| `TWILIO_SIP_DOMAIN_SID` | SID of that Twilio SIP Domain (`SD...`) | Required for SIP-user provisioning. |
+| `TWILIO_CREDENTIAL_LIST_SID` | SID of its Credential List (`CL...`) | Attach the list to both Calls and Registrations on the SIP Domain. |
 | `GOSIP_PUBLIC_URL` | `https://sip2.example.com` | HTTPS URL for this app. |
 | `GOSIP_CORS_ORIGINS` | `https://sip2.example.com` | Match the app's browser origin. |
 | `GOSIP_PBX_URL` | `http://pbx:8088` | Keep; this is the private Compose service URL. |

@@ -70,7 +70,9 @@ type Config struct {
 	HTTPPort         int
 	DataDir          string
 	SIPDomain        string // SIP domain for registrations (e.g., "sip.example.com")
-	TwilioSIPDomain  string // Optional Twilio registrar for mobile softphones.
+	TwilioSIPDomain          string // Optional Twilio registrar for mobile softphones.
+	TwilioSIPDomainSID       string
+	TwilioCredentialListSID  string
 	OutboundCallerID string
 	PublicURL        string
 	PBXURL           string
@@ -124,7 +126,9 @@ func Load() *Config {
 		HTTPPort:         getEnvInt("GOSIP_HTTP_PORT", DefaultHTTPPort),
 		DataDir:          getEnv("GOSIP_DATA_DIR", DefaultDataDir),
 		SIPDomain:        getEnv("GOSIP_SIP_DOMAIN", "localhost"),
-		TwilioSIPDomain:  getEnv("TWILIO_SIP_DOMAIN", ""),
+		TwilioSIPDomain:         getEnv("TWILIO_SIP_DOMAIN", ""),
+		TwilioSIPDomainSID:      getEnv("TWILIO_SIP_DOMAIN_SID", ""),
+		TwilioCredentialListSID: getEnv("TWILIO_CREDENTIAL_LIST_SID", ""),
 		OutboundCallerID: getEnv("GOSIP_OUTBOUND_CALLER_ID", ""),
 		PublicURL:        getEnv("GOSIP_PUBLIC_URL", ""),
 		PBXURL:           getEnv("GOSIP_PBX_URL", ""),
