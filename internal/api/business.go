@@ -38,6 +38,17 @@ func phoneServer(value string) string {
 	return value
 }
 
+func phoneProxyURI(cfgPort int, host string) string {
+	return fmt.Sprintf("sip:%s:%d;transport=tls", phoneServer(host), phoneSIPPort(cfgPort))
+}
+
+func phoneSIPPort(port int) int {
+	if port < 1 || port > 65535 {
+		return 5061
+	}
+	return port
+}
+
 func validBusinessUsername(username string) bool {
 	if !businessUsername.MatchString(username) {
 		return false
@@ -199,7 +210,7 @@ func (h *BusinessHandler) List(w http.ResponseWriter, r *http.Request) {
 		result = append(result, map[string]interface{}{"id": d.ID, "name": d.Name, "username": d.Username, "number": number, "state": state, "enabled": enabled, "online": enabled && online[d.ID], "protected": locks[number]})
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	WriteJSON(w, 200, map[string]interface{}{"data": result, "server": phoneServer(h.deps.Config.PBXSIPDomain), "proxy": "sip:" + phoneServer(h.deps.Config.PBXSIPDomain) + ":5061;transport=tls"})
+	WriteJSON(w, 200, map[string]interface{}{"data": result, "server": phoneServer(h.deps.Config.PBXSIPDomain), "proxy": phoneProxyURI(h.deps.Config.PBXSIPPort, h.deps.Config.PBXSIPDomain), "sip_port": phoneSIPPort(h.deps.Config.PBXSIPPort)})
 }
 func (h *BusinessHandler) credentialList(ctx context.Context) (string, error) {
 	domainSID, err := h.deps.DB.Config.Get(ctx, "pbx_twilio_domain_sid")
@@ -420,7 +431,7 @@ func (h *BusinessHandler) Provision(w http.ResponseWriter, r *http.Request) {
 		}
 		h.audit(r.Context(), getUserIDFromContext(r.Context()), "edit_user", device.Username, "connections_preserved")
 		w.Header().Set("Cache-Control", "no-store")
-		WriteJSON(w, 200, map[string]interface{}{"id": device.ID, "username": device.Username, "number": req.Number, "state": "ready", "password": phonePassword, "proxy": "sip:" + phoneServer(h.deps.Config.PBXSIPDomain) + ":5061;transport=tls", "server": phoneServer(h.deps.Config.PBXSIPDomain)})
+		WriteJSON(w, 200, map[string]interface{}{"id": device.ID, "username": device.Username, "number": req.Number, "state": "ready", "password": phonePassword, "proxy": phoneProxyURI(h.deps.Config.PBXSIPPort, h.deps.Config.PBXSIPDomain), "server": phoneServer(h.deps.Config.PBXSIPDomain), "sip_port": phoneSIPPort(h.deps.Config.PBXSIPPort)})
 		return
 	}
 	// Review is read-only and must precede every external or local mutation.
@@ -525,7 +536,7 @@ func (h *BusinessHandler) Provision(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r.Context(), getUserIDFromContext(r.Context()), "provision", device.Username, "ready")
 	w.Header().Set("Cache-Control", "no-store")
-	WriteJSON(w, 200, map[string]interface{}{"id": device.ID, "username": device.Username, "number": req.Number, "state": "ready", "password": phonePassword, "proxy": "sip:" + phoneServer(h.deps.Config.PBXSIPDomain) + ":5061;transport=tls", "server": phoneServer(h.deps.Config.PBXSIPDomain)})
+	WriteJSON(w, 200, map[string]interface{}{"id": device.ID, "username": device.Username, "number": req.Number, "state": "ready", "password": phonePassword, "proxy": phoneProxyURI(h.deps.Config.PBXSIPPort, h.deps.Config.PBXSIPDomain), "server": phoneServer(h.deps.Config.PBXSIPDomain), "sip_port": phoneSIPPort(h.deps.Config.PBXSIPPort)})
 }
 func (h *BusinessHandler) assign(ctx context.Context, d *models.Device, name, number, numberSID, credential, phonePassword string) error {
 	tx, err := h.deps.DB.Conn().BeginTx(ctx, nil)
@@ -728,5 +739,5 @@ func (h *BusinessHandler) Status(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sid, token := h.deps.Config.TwilioCredentials()
-	WriteJSON(w, 200, map[string]interface{}{"pbx_healthy": healthy, "twilio_configured": sid != "" && token != "", "last_backup": backup["last_success"], "sip_server": h.deps.Config.PBXSIPDomain, "transport": "TLS 5061 / SRTP", "console_access": "Administrators only", "number_source": "Existing Twilio numbers", "credential_storage": "Twilio API credentials in environment; phone password hashes in database; SIP trunk secrets in private PBX volume"})
+	WriteJSON(w, 200, map[string]interface{}{"pbx_healthy": healthy, "twilio_configured": sid != "" && token != "", "last_backup": backup["last_success"], "sip_server": h.deps.Config.PBXSIPDomain, "transport": fmt.Sprintf("TLS %d / SRTP", phoneSIPPort(h.deps.Config.PBXSIPPort)), "console_access": "Administrators only", "number_source": "Existing Twilio numbers", "credential_storage": "Twilio API credentials in environment; phone password hashes in database; SIP trunk secrets in private PBX volume"})
 }

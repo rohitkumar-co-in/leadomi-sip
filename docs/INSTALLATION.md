@@ -13,7 +13,9 @@ Builds require additional headroom. Hostname examples below use
 `sip.example.com`; substitute your hostname consistently.
 
 Configure its DNS A record to the VPS. Open HTTPS TCP 443, HTTP TCP 80 when
-needed for certificate renewal, SIP TLS TCP 5061, and RTP UDP 10000–10100.
+needed for certificate renewal, SIP TLS TCP 5061, and RTP UDP 10000–10100 by
+default. For another Leadomi instance on the same VPS, allocate it unused SIP
+and RTP ports as described in [Coolify deployment](COOLIFY_DEPLOYMENT.md).
 Restrict SSH to your management network. Do not expose the Go backend's 5060,
 PBX HTTP 8088, AMI, database, or unauthenticated management ports publicly.
 
@@ -43,8 +45,9 @@ Clone this repository and configure the variables in
 For direct Docker Compose, copy `.env.example` to `.env`, populate it, and
 restrict it to mode 0600. Never commit that file.
 
-Provide a publicly trusted certificate for the SIP hostname at
-`/data/gosip-pbx/certs/fullchain.pem` and `privkey.pem`. The root-owned private
+Provide a publicly trusted certificate for the SIP hostname in the directory
+configured by `PBX_CERTS_HOST_PATH` (default `/data/gosip-pbx/certs`), named
+`fullchain.pem` and `privkey.pem`. The root-owned private
 key should be mode 0600. The PBX mounts this directory read-only. Your HTTPS
 proxy must also present a trusted certificate. Install a renewal/export hook
 so the PBX certificate stays current; a HTTPS proxy renewal alone does not

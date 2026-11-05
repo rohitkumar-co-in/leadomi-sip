@@ -10,7 +10,8 @@ search listings require recrawling before removal.
 The supported business console is administrator-only. Password changes revoke
 persisted/cached sessions. Mutating console origins are restricted. Twilio
 callbacks are signed; the private PBX bridge authenticates sender identities.
-Phone signaling uses TLS5061 and SRTP media. API credentials are backend runtime
+Phone signaling uses TLS (public port configurable, default 5061) and SRTP
+media. API credentials are backend runtime
 environment values, excluded from the SQLite credential rows and PBX container.
 Phone passwords are digest hashes; generated provider SIP credentials persist
 in a root-only PBX file. Local secrets and backups are never public web assets.

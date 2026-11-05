@@ -50,6 +50,13 @@ def safe(value, pattern=USERNAME):
     return value
 
 
+def port_value(name, default):
+    value = int(os.getenv(name, str(default)))
+    if value < 1024 or value > 65535:
+        raise ValueError("Invalid PBX port configuration")
+    return value
+
+
 def source():
     conn = sqlite3.connect("file:" + DB + "?mode=ro", uri=True, timeout=5)
     conn.row_factory = sqlite3.Row
@@ -85,6 +92,11 @@ def render(devices, device_numbers=None):
     trunk_password = safe(os.environ["PBX_TWILIO_PASSWORD"], PASSWORD)
     incoming_user = safe(os.environ["GOSIP_PBX_TRUNK_USER"])
     incoming_password = safe(os.environ["GOSIP_PBX_TRUNK_PASSWORD"], PASSWORD)
+    sip_external_port = port_value("GOSIP_PBX_SIP_PORT", 5061)
+    rtp_start = port_value("PBX_RTP_PORT_START", 10000)
+    rtp_end = port_value("PBX_RTP_PORT_END", 10100)
+    if rtp_end < rtp_start or rtp_end - rtp_start < 7:
+        raise ValueError("Invalid PBX RTP port range")
     device_numbers = device_numbers or {}
     device_passwords = json.loads(os.getenv("PBX_TWILIO_DEVICE_PASSWORDS") or "{}")
     credential_file = STATE / "credentials.json"
@@ -112,6 +124,7 @@ verify_client=no
 require_client_cert=no
 allow_reload=yes
 external_signaling_address={public_ip}
+external_signaling_port={sip_external_port}
 external_media_address={public_ip}
 local_net=172.16.0.0/12
 local_net=10.0.0.0/8
@@ -528,7 +541,11 @@ def main():
     # Load only the modules needed for SIP, audio and messaging.
     atomic(CONF / "modules.conf", "[modules]\nautoload=yes\nnoload=chan_sip.so\nnoload=chan_iax2.so\nnoload=res_hep.so\nnoload=res_hep_pjsip.so\nnoload=res_hep_rtcp.so\nnoload=res_http_websocket.so\nnoload=res_ari.so\nnoload=cdr_csv.so\nnoload=cdr_manager.so\nnoload=cdr_sqlite3_custom.so\nnoload=cel_sqlite3_custom.so\n")
     atomic(CONF / "logger.conf", "[general]\n[logfiles]\nconsole => error,warning,notice\n")
-    atomic(CONF / "rtp.conf", "[general]\nrtpstart=10000\nrtpend=10100\nstrictrtp=yes\n")
+    rtp_start = port_value("PBX_RTP_PORT_START", 10000)
+    rtp_end = port_value("PBX_RTP_PORT_END", 10100)
+    if rtp_end < rtp_start or rtp_end - rtp_start < 7:
+        raise ValueError("Invalid PBX RTP port range")
+    atomic(CONF / "rtp.conf", f"[general]\nrtpstart={rtp_start}\nrtpend={rtp_end}\nstrictrtp=yes\n")
     atomic(CONF / "http.conf", "[general]\nenabled=no\n")
     atomic(CONF / "manager.conf", "[general]\nenabled=yes\nbindaddr=127.0.0.1\nport=5038\n[gosip-bridge]\nsecret=" + AMI_SECRET + "\ndeny=0.0.0.0/0.0.0.0\npermit=127.0.0.1/255.255.255.255\nread=system,message,reporting\nwrite=system,message,reporting\n")
     configure()

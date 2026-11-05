@@ -76,6 +76,7 @@ type Config struct {
 	PBXURL           string
 	PBXSecret        string
 	PBXSIPDomain     string
+	PBXSIPPort       int
 	PBXTrunkUser     string
 	PBXTrunkPassword string
 
@@ -129,6 +130,7 @@ func Load() *Config {
 		PBXURL:           getEnv("GOSIP_PBX_URL", ""),
 		PBXSecret:        getEnv("GOSIP_PBX_SECRET", ""),
 		PBXSIPDomain:     getEnv("GOSIP_PBX_SIP_DOMAIN", ""),
+		PBXSIPPort:       getEnvInt("GOSIP_PBX_SIP_PORT", 5061),
 		PBXTrunkUser:     getEnv("GOSIP_PBX_TRUNK_USER", ""),
 		PBXTrunkPassword: getEnv("GOSIP_PBX_TRUNK_PASSWORD", ""),
 

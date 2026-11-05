@@ -1,8 +1,9 @@
 # SIP, audio and SMS in Leadomi SIP
 
 SIP registers the phone and establishes calls. RTP carries voice; SRTP encrypts
-it. TLS protects SIP signaling on TCP5061, while UDP10000–10100 carries media
-to Asterisk. HTTPS and the SIP certificate each need a trusted hostname.
+it. TLS protects SIP signaling on TCP5061 by default, while UDP10000–10100
+carries media by default. Both can be configured per deployment. HTTPS and the
+SIP certificate each need a trusted hostname.
 
 Twilio Voice connects telephone calls. Twilio SMS uses HTTP APIs/webhooks;
 Asterisk's authenticated SIP MESSAGE bridge lets Linphone use the same assigned

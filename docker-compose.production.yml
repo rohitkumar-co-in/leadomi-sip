@@ -21,6 +21,7 @@ services:
       GOSIP_PBX_URL: ${GOSIP_PBX_URL:-}
       GOSIP_PBX_SECRET: ${GOSIP_PBX_SECRET:-}
       GOSIP_PBX_SIP_DOMAIN: ${GOSIP_PBX_SIP_DOMAIN:-}
+      GOSIP_PBX_SIP_PORT: ${GOSIP_PBX_SIP_PORT:-5061}
       GOSIP_PBX_TRUNK_USER: ${GOSIP_PBX_TRUNK_USER:-}
       GOSIP_PBX_TRUNK_PASSWORD: ${GOSIP_PBX_TRUNK_PASSWORD:-}
       TZ: ${TZ:-America/New_York}
@@ -37,14 +38,14 @@ services:
       dockerfile: deploy/asterisk/Dockerfile
     restart: unless-stopped
     ports:
-      - "5061:5061/tcp"
-      - "10000-10100:10000-10100/udp"
+      - "${GOSIP_PBX_SIP_PORT:-5061}:5061/tcp"
+      - "${PBX_RTP_PORT_START:-10000}-${PBX_RTP_PORT_END:-10100}:${PBX_RTP_PORT_START:-10000}-${PBX_RTP_PORT_END:-10100}/udp"
     expose:
       - "8088"
     volumes:
       - gosip-data:/gosip:ro
       - pbx-data:/var/lib/gosip-pbx
-      - /data/gosip-pbx/certs:/certs:ro
+      - ${PBX_CERTS_HOST_PATH:-/data/gosip-pbx/certs}:/certs:ro
     environment:
       GOSIP_URL: http://gosip:8080
       # Coolify injects the application's .env into each service. Override
@@ -53,11 +54,14 @@ services:
       TWILIO_ACCOUNT_SID: ${GOSIP_PBX_UNUSED_API_CREDENTIAL:-}
       TWILIO_AUTH_TOKEN: ${GOSIP_PBX_UNUSED_API_CREDENTIAL:-}
       GOSIP_PBX_SECRET: ${GOSIP_PBX_SECRET}
+      GOSIP_PBX_SIP_PORT: ${GOSIP_PBX_SIP_PORT:-5061}
       GOSIP_PBX_TRUNK_USER: ${GOSIP_PBX_TRUNK_USER}
       GOSIP_PBX_TRUNK_PASSWORD: ${GOSIP_PBX_TRUNK_PASSWORD}
       GOSIP_OUTBOUND_CALLER_ID: ${GOSIP_OUTBOUND_CALLER_ID}
       PBX_DOMAIN: ${PBX_DOMAIN}
       PBX_PUBLIC_IP: ${PBX_PUBLIC_IP}
+      PBX_RTP_PORT_START: ${PBX_RTP_PORT_START:-10000}
+      PBX_RTP_PORT_END: ${PBX_RTP_PORT_END:-10100}
       TWILIO_SIP_DOMAIN: ${TWILIO_SIP_DOMAIN}
       PBX_TWILIO_USER: ${PBX_TWILIO_USER}
       PBX_TWILIO_PASSWORD: ${PBX_TWILIO_PASSWORD}

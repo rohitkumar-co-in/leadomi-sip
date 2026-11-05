@@ -18,8 +18,11 @@ environment variables below supply that account's API credentials.
 | `GOSIP_PBX_URL` | Private Docker URL `http://pbx:8088` |
 | `GOSIP_PBX_SECRET` | Random shared backend/PBX HTTP secret |
 | `GOSIP_PBX_SIP_DOMAIN` | Public phone hostname, e.g. `sip.example.com` |
+| `GOSIP_PBX_SIP_PORT` | Public TLS port for phones; defaults to `5061` |
 | `PBX_DOMAIN` | Same public phone hostname |
 | `PBX_PUBLIC_IP` | Static public IPv4 for SIP/RTP NAT advertisement |
+| `PBX_RTP_PORT_START` / `PBX_RTP_PORT_END` | Public and container RTP range; defaults to `10000`–`10100` |
+| `PBX_CERTS_HOST_PATH` | Host directory containing the PBX certificate and key |
 | `GOSIP_PBX_TRUNK_USER` | Private incoming voice trunk username |
 | `GOSIP_PBX_TRUNK_PASSWORD` | Random incoming trunk password |
 | `PBX_TWILIO_USER` | Dedicated bootstrap Twilio SIP credential username |
@@ -45,10 +48,12 @@ API credentials out of the PBX service when Coolify injects app variables.
 ## Fixed compose settings
 
 The backend listens privately on 8080 and persists `/app/data/gosip.db`.
-The PBX listens publicly on TLS TCP 5061 and media UDP 10000–10100; its private
-health/credential API listens on 8088. Certificates mount from
-`/data/gosip-pbx/certs`. PBX credentials, offline SMS delivery state and backup
-markers persist under `/var/lib/gosip-pbx`. `PBX_TWILIO_NETWORKS` identifies
+The PBX listens publicly on the configured TLS port (default TCP 5061) and RTP
+range (default UDP 10000–10100); inside the container it listens on TLS 5061 and
+the configured RTP range. Its private health/credential API listens on 8088.
+Certificates mount from `PBX_CERTS_HOST_PATH` at `/certs`. PBX credentials,
+offline SMS delivery state and backup markers persist under `/var/lib/gosip-pbx`.
+`PBX_TWILIO_NETWORKS` identifies
 provider signaling networks in the compose file; review against current
 Twilio documentation before changing provider regions.
 

@@ -14,9 +14,9 @@ Create an ordinary SIP account using the downloaded setup file:
 | Authentication username | `YOUR_USERNAME` |
 | Password | The custom or one-time generated **phone** password |
 | Domain | `sip.example.com` |
-| Registrar URI | `sip:sip.example.com:5061;transport=tls` |
-| Outbound SIP Proxy URI | `sip:sip.example.com:5061;transport=tls` |
-| Transport | TLS, port5061 |
+| Registrar URI | Use the URI from the downloaded setup file, e.g. `sip:sip.example.com:5061;transport=tls` |
+| Outbound SIP Proxy URI | Use the same URI from the setup file |
+| Transport | TLS on the port shown in the setup file (default 5061) |
 | Media encryption | SRTP |
 | Basic conversation CPIM | Off |
 

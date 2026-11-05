@@ -15,7 +15,8 @@ outbound SIP credentials are private PBX state. Provider and local DB writes are
 not atomic together; errors are visible and retries require review.
 
 `deploy/asterisk/bridge.py` renders endpoints and isolated MESSAGE/call contexts
-from read-only Go DB data. It preserves TLS5061/SRTP, one contact per phone user,
+from read-only Go DB data. It preserves SIP TLS (public port configurable,
+default 5061)/SRTP, one contact per phone user,
 per-user caller ID, private credential storage and offline SMS delivery state.
 Existing route edits and phone password resets do not change number webhooks.
 Only confirmed number assignment changes Twilio callback/application links.

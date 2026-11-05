@@ -33,13 +33,41 @@ backward compatible; never blindly restore a database into running containers.
    live database or delete a previous installation's volume.
 4. Add all [configuration variables](CONFIGURATION.md) as runtime values.
    Use `GOSIP_PBX_URL=http://pbx:8088`. Assign the public HTTPS domain to the Go
-   service's internal port8080. The PBX has direct TLS5061 and UDP media ports;
-   it is not routed through the web reverse proxy.
+   service's internal port8080. The PBX publishes its configurable SIP TLS and
+   RTP ports directly; it is not routed through the web reverse proxy.
 5. Deploy, create the first administrator at `/setup`, and store the `SD…`/`CL…`
    metadata using the backend container terminal as described in Installation.
 6. Create a SIP user, review the chosen number's existing connections, explicitly
    confirm assignment, download its phone file, and perform manual tests.
 7. Install and verify the backup timer with your new PBX container prefix.
+
+### Running another instance on the same VPS
+
+Coolify can proxy multiple HTTPS domains on port443, but each PBX needs unique
+public SIP and media ports, its own certificates, and separate persistent
+volumes. Keep the existing instance on its current defaults. For the second
+instance, use settings like these, after confirming the ports are unused:
+
+| Variable | Example for the second instance |
+|---|---|
+| `GOSIP_PBX_SIP_PORT` | `5062` |
+| `PBX_RTP_PORT_START` | `11000` |
+| `PBX_RTP_PORT_END` | `11100` |
+| `PBX_CERTS_HOST_PATH` | `/data/gosip-pbx-second/certs` |
+| `GOSIP_VOLUME_NAME` | A new, separately created external volume |
+
+Create the certificate directory and install a trusted certificate whose name
+matches the second instance's SIP hostname. Open TCP5062 and UDP11000–11100 in
+the VPS firewall and provider security group. The Compose file maps the public
+TLS port to the PBX's internal 5061 and publishes the configured RTP range both
+inside and outside the container. Asterisk advertises the public signaling
+port and media range. The downloaded phone setup file includes the configured
+TLS port.
+
+Give the instance its own HTTPS hostname, SIP hostname, administrator database,
+Twilio SIP Domain, and Credential List. Use phone numbers that are not already
+configured to send callbacks to the first instance. Both apps may use the same
+public IP; the port ranges and host certificate directories must remain unique.
 
 The Twilio Account SID/Auth Token belong in runtime environment, not Docker
 build arguments or committed `.env` files. Keep the PBX unused API alias empty.
@@ -47,7 +75,8 @@ Do not expose private PBX API8088 or Go SIP5060 through Coolify port mappings.
 
 ## Certificate renewal and health
 
-Coolify's HTTPS certificate and `/data/gosip-pbx/certs` must stay synchronized.
+Coolify's HTTPS certificate and the directory configured by
+`PBX_CERTS_HOST_PATH` must stay synchronized.
 Use a root-only renewal export hook matching your proxy/certificate provider.
 Never print private keys or application environment values in deployment logs.
 Backend health: `/api/health`; PBX private health: `/health` on8088.

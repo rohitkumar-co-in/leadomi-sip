@@ -59,7 +59,8 @@ documentation for provider retention details.
 ## Android phone
 
 Use the downloaded account setup file. In Linphone, configure the SIP identity,
-registrar **and** outbound proxy, TLS on 5061, SRTP, and CPIM disabled for basic
+registrar **and** outbound proxy, TLS on the port shown in the downloaded setup
+file (5061 by default), SRTP, and CPIM disabled for basic
 conversations. See [Softphones](TWILIO_SOFTPHONES.md) for exact fields and tests.
 There is one registered phone per SIP user. A second phone needs a separate SIP
 user and explicitly assigned owned number. SMS is bridged to Twilio's HTTP API;
@@ -75,10 +76,10 @@ browser calling, conferencing and transfer controls are not supported here.
 
 | Symptom | Check |
 |---|---|
-| Account connection error | Hostname, TLS5061, trusted certificate, username/password and both proxy fields |
+| Account connection error | Hostname, configured TLS port (5061 by default), trusted certificate, username/password and both proxy fields |
 | Incompatible media | Enable SRTP; allow G.711/PCMU/PCMA where the client exposes codec settings |
 | 484 / international-number prompt | Both proxy fields; use an actual leading `+` and full country code |
-| One-way or no audio | UDP10000–10100, public IP advertisement, Android network/NAT |
+| One-way or no audio | Configured RTP range (10000–10100 by default), public IP advertisement, Android network/NAT |
 | Message spinner or failure | Disable CPIM; use `sip:+number@host`; inspect status and username in Activity Log |
 | Incoming SMS missing | Number-level webhook, Messaging Service inbound handler, assigned user's registration |
 | Cannot assign number | Active local owner, failed provider connection check, service override, stale review |
