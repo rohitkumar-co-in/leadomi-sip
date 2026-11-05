@@ -73,6 +73,7 @@ type Config struct {
 	TwilioSIPDomain          string // Optional Twilio registrar for mobile softphones.
 	TwilioSIPDomainSID       string
 	TwilioCredentialListSID  string
+	TwilioBootstrapUser      string
 	OutboundCallerID string
 	PublicURL        string
 	PBXURL           string
@@ -129,6 +130,7 @@ func Load() *Config {
 		TwilioSIPDomain:         getEnv("TWILIO_SIP_DOMAIN", ""),
 		TwilioSIPDomainSID:      getEnv("TWILIO_SIP_DOMAIN_SID", ""),
 		TwilioCredentialListSID: getEnv("TWILIO_CREDENTIAL_LIST_SID", ""),
+		TwilioBootstrapUser:     getEnv("PBX_TWILIO_USER", ""),
 		OutboundCallerID: getEnv("GOSIP_OUTBOUND_CALLER_ID", ""),
 		PublicURL:        getEnv("GOSIP_PUBLIC_URL", ""),
 		PBXURL:           getEnv("GOSIP_PBX_URL", ""),

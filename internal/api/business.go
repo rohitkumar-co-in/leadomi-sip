@@ -465,7 +465,10 @@ func (h *BusinessHandler) Provision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Never take over an unrelated username already in the Twilio credential list.
-	if device == nil && credentialSID != "" {
+	// The server bootstrap credential may also be the first phone user's
+	// Twilio credential. Reusing that exact configured username is safe: the
+	// password is rotated below and immediately persisted to the PBX state.
+	if device == nil && credentialSID != "" && req.Username != h.deps.Config.TwilioBootstrapUser {
 		WriteError(w, 409, "USERNAME_EXISTS", "That username already exists in Twilio. Choose a different username", nil)
 		return
 	}
