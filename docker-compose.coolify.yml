@@ -77,5 +77,5 @@ services:
 volumes:
   pbx-data:
   gosip-data:
-    external: true
+    external: false
     name: ${GOSIP_VOLUME_NAME}
