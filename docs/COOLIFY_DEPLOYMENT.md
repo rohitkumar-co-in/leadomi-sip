@@ -19,11 +19,6 @@ be healthy, check existing assignments/routes, trusted public TLS, SIP digest
 authentication, and callback mappings read-only. Use manual calls/SMS for paid
 acceptance tests. If reverting code, consider whether a schema migration is
 backward compatible; never blindly restore a database into running containers.
-When upgrading from the multi-account release, the migration disables phone
-assignments tied to non-primary Twilio accounts, removes their account metadata,
-and deletes the obsolete secondary-token file. Those phone users remain in the
-database in an error state; assign each a number owned by the configured primary
-account to restore service.
 
 ## Fresh Coolify app
 

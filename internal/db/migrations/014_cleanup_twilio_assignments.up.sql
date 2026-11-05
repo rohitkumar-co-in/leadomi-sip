@@ -1,13 +1,12 @@
--- Stop users assigned through a non-primary Twilio account before removing the
--- account mapping. Their phone and number records remain available for review.
+-- Preserve phone and number history while disabling assignments that do not
+-- belong to the configured Twilio account.
 UPDATE sip_accounts
 SET enabled=0,state='error',updated_at=CURRENT_TIMESTAMP
 WHERE twilio_account_sid<>''
   AND EXISTS (SELECT 1 FROM config WHERE key='pbx_primary_twilio_account_sid')
   AND twilio_account_sid<>(SELECT value FROM config WHERE key='pbx_primary_twilio_account_sid');
 
--- Rebuild the PBX map using only enabled assignments so disabled secondary
--- users are not left configured for outbound dialing.
+-- Rebuild the PBX map using only enabled assignments.
 INSERT INTO config(key,value)
 SELECT 'pbx_device_numbers', COALESCE((
   SELECT json_group_object(d.username,a.number)

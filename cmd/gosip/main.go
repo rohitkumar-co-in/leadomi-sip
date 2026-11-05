@@ -55,7 +55,7 @@ func main() {
 		os.Exit(1)
 	}
 	if err := os.Remove(filepath.Join(cfg.DataDir, "twilio-accounts.json")); err != nil && !os.IsNotExist(err) {
-		slog.Error("Failed to remove obsolete secondary Twilio credentials")
+		slog.Error("Failed to remove legacy Twilio account credentials")
 		os.Exit(1)
 	}
 	if err := database.Config.MigrateTwilioEnv(cfg); err != nil {
