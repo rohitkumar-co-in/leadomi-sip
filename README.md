@@ -40,6 +40,8 @@ number replaces its webhooks/application links and local routes: review first.
    certificates, first administrator, and server metadata.
 2. [Coolify deployment](docs/COOLIFY_DEPLOYMENT.md): runtime variables, volumes,
    deployment, verification, and preserving an existing installation.
+   To host a separate second instance on the same VPS, use the dedicated
+   [second-instance checklist](docs/COOLIFY_SECOND_INSTANCE.md).
 3. [Administrator guide](docs/ADMINISTRATION.md): create users, assign numbers,
    reset passwords, disable users, and manage access.
 4. [Phone and console guide](docs/USER_GUIDE.md): Linphone, calling, SMS,

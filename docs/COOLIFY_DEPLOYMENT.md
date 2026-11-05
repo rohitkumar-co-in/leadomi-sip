@@ -43,6 +43,10 @@ backward compatible; never blindly restore a database into running containers.
 
 ### Running another instance on the same VPS
 
+Follow the detailed [second-instance checklist](COOLIFY_SECOND_INSTANCE.md) to
+create a separate Coolify app, data volume, Twilio configuration, certificate
+directory, and public ports without changing the existing GoSIP app.
+
 Coolify can proxy multiple HTTPS domains on port443, but each PBX needs unique
 public SIP and media ports, its own certificates, and separate persistent
 volumes. Keep the existing instance on its current defaults. For the second

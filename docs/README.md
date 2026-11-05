@@ -1,5 +1,8 @@
 # Leadomi SIP documentation
 
+For a second isolated Coolify deployment on the same VPS, start with the
+[second-instance checklist](COOLIFY_SECOND_INSTANCE.md).
+
 These documents describe the supported Asterisk + Twilio business deployment.
 They do not advertise unfinished features retained in legacy source files.
 
@@ -14,6 +17,7 @@ They do not advertise unfinished features retained in legacy source files.
 | [Installation](INSTALLATION.md) | Fresh VPS, Twilio SIP domain, first admin |
 | [Configuration](CONFIGURATION.md) | Environment, metadata, certificates, network |
 | [Coolify](COOLIFY_DEPLOYMENT.md) | Deploy and update safely |
+| [Second Coolify app](COOLIFY_SECOND_INSTANCE.md) | Add an isolated app on the same VPS without changing the current one |
 | [Administration](ADMINISTRATION.md) | SIP users, owned number assignment, web admins |
 | [User guide](USER_GUIDE.md) | Console, phones, history, troubleshooting |
 | [Softphones](TWILIO_SOFTPHONES.md) | Android Linphone setup and manual tests |
