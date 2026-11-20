@@ -271,6 +271,7 @@ func NewRouter(deps *Dependencies) chi.Router {
 					r.Get("/activity", businessHandler.Activity)
 					r.Delete("/activity/{kind}/{id}", businessHandler.DeleteActivity)
 					r.Get("/status", businessHandler.Status)
+					r.Get("/setup-check", businessHandler.SetupCheck)
 					r.Get("/policy", businessHandler.Policy)
 					r.Put("/policy", businessHandler.Policy)
 				})

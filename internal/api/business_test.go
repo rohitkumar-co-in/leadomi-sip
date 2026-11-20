@@ -331,10 +331,14 @@ func newBootstrapFake(t *testing.T) *bootstrapFake {
 			fmt.Fprint(w, `{"saved":true}`)
 		case strings.HasSuffix(path, "/registrations"):
 			fmt.Fprint(w, `[]`)
+		case strings.HasSuffix(path, "/health"):
+			fmt.Fprint(w, `ok`)
+		case strings.HasSuffix(path, "/Accounts/"+sid+".json"):
+			fmt.Fprint(w, `{"status":"active","friendly_name":"Test account"}`)
 		case strings.HasSuffix(path, "/IncomingPhoneNumbers.json"):
-			fmt.Fprintf(w, `{"incoming_phone_numbers":[{"sid":%q,"phone_number":"+447782226484","capabilities":{"voice":true,"sms":true}}]}`, pn)
+			fmt.Fprintf(w, `{"incoming_phone_numbers":[{"sid":%q,"phone_number":"+447782226484","capabilities":{"voice":true,"sms":true},"voice_url":"https://sip.example.test/api/webhooks/voice/incoming","sms_url":"https://sip.example.test/api/webhooks/sms/incoming","status_callback":"https://elsewhere.test/status"}]}`, pn)
 		case strings.HasSuffix(path, "/Domains/"+domain+".json"):
-			fmt.Fprint(w, `{"domain_name":"test.sip.twilio.com","secure":true}`)
+			fmt.Fprint(w, `{"domain_name":"test.sip.twilio.com","secure":true,"sip_registration":true,"voice_url":"https://sip.example.test/api/webhooks/voice/outgoing","voice_method":"POST","voice_fallback_url":"https://handler.twilio.com/twiml/EHx"}`)
 		case strings.HasSuffix(path, "/CredentialListMappings.json"):
 			fmt.Fprintf(w, `{"contents":[{"sid":%q}]}`, list)
 		case strings.HasSuffix(path, "/Credentials.json") && r.Method == "GET":
@@ -458,5 +462,34 @@ func TestEnvPhoneUserSync(t *testing.T) {
 	f.cfg.PhonePassword = "short"
 	if f.h.EnsureEnvPhoneUser(ctx) == nil {
 		t.Fatal("Invalid phone password was accepted")
+	}
+}
+
+// The dashboard setup check reports each Twilio and server item.
+func TestSetupCheck(t *testing.T) {
+	f := newBootstrapFake(t)
+	f.cfg.OutboundCallerID = "+447782226484"
+	checks := f.h.runSetupChecks(context.Background())
+	got := map[string]string{}
+	for _, c := range checks {
+		got[c.ID] = c.Status
+	}
+	want := map[string]string{
+		"account": "ok", "sip_domain": "ok", "domain_security": "ok", "domain_voice_url": "ok",
+		"credential_list": "ok", "credential": "ok", "number": "ok",
+		"number_webhooks": "fail", // status callback points elsewhere
+		"pbx": "ok", "phone_user": "fail", // GOSIP_PHONE_PASSWORD not set
+	}
+	for id, status := range want {
+		if got[id] != status {
+			t.Errorf("check %s = %q, want %q (all: %v)", id, got[id], status, got)
+		}
+	}
+	// Wrong domain name is reported clearly.
+	f.cfg.TwilioSIPDomain = "other.sip.twilio.com"
+	for _, c := range f.h.runSetupChecks(context.Background()) {
+		if c.ID == "sip_domain" && (c.Status != "fail" || !strings.Contains(c.Fix, "TWILIO_SIP_DOMAIN")) {
+			t.Fatalf("domain mismatch not reported: %+v", c)
+		}
 	}
 }

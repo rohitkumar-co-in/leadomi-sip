@@ -25,8 +25,18 @@ async function load() {
 }
 async function backup() { busy.value = true; error.value = ''; try { await api.post('/system/backups'); notice.value = 'Backup created'; await load() } catch { error.value = 'Backup could not complete' } finally { busy.value = false } }
 async function verify(filename: string) { busy.value = true; try { await api.post('/system/backups/verify', { filename }); notice.value = 'Backup verified: database is intact' } catch { error.value = 'Backup verification failed' } finally { busy.value = false } }
+interface Check { id: string; label: string; status: 'ok' | 'fail' | 'warn' | 'skip'; detail?: string; fix?: string }
+const checks = ref<Check[]>([]), checking = ref(false), checkError = ref(''), checkedAt = ref('')
+async function runChecks() {
+  checking.value = true; checkError.value = ''
+  try { const res = await api.get('/business/setup-check', { timeout: 60000 }); checks.value = res.data.checks || []; checkedAt.value = new Date().toLocaleTimeString() }
+  catch { checkError.value = 'Setup check could not run. Try again.' } finally { checking.value = false }
+}
+const icon = (s: string) => ({ ok: '✓', fail: '✗', warn: '!', skip: '–' } as Record<string, string>)[s] || '?'
+const iconClass = (s: string) => ({ ok: 'bg-green-600 text-white', fail: 'bg-red-600 text-white', warn: 'bg-amber-500 text-black', skip: 'bg-gray-600 text-white' } as Record<string, string>)[s] || ''
+const problems = () => checks.value.filter(c => c.status === 'fail').length
 const connected = () => automation.value.key_set && automation.value.missed_call_url_set && automation.value.sms_url_set
-onMounted(load)
+onMounted(() => { load(); runChecks() })
 </script>
 
 <template>
@@ -64,6 +74,31 @@ onMounted(load)
         <p :class="['font-semibold mt-2', automation.demo_mode ? 'text-amber-400' : 'text-green-400']">{{ !loaded ? 'Checking…' : automation.demo_mode ? 'Demo mode' : '● Ring phone' }}</p>
         <p class="text-xs text-gray-500">{{ automation.demo_mode ? 'Rejected + instant text-back' : 'Text-back only if missed' }}</p>
       </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-5 space-y-3">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="font-semibold">Setup check</h2>
+          <p class="text-sm mt-1" :class="checking && !checks.length ? 'text-gray-500' : problems() ? 'text-red-400' : 'text-green-400'">
+            {{ checking && !checks.length ? 'Checking Twilio and the server…' : problems() ? problems() + ' item(s) need fixing' : 'Everything is set up' }}
+            <span v-if="checkedAt" class="text-gray-500"> · checked {{ checkedAt }}</span>
+          </p>
+        </div>
+        <button @click="runChecks" :disabled="checking" class="border rounded px-3 py-2 text-sm">{{ checking ? 'Checking…' : 'Re-check' }}</button>
+      </div>
+      <p v-if="checkError" role="alert" class="text-sm text-red-400">{{ checkError }}</p>
+      <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+        <li v-for="c in checks" :key="c.id" class="py-2 flex gap-3">
+          <span :class="['shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold', iconClass(c.status)]" :aria-label="c.status">{{ icon(c.status) }}</span>
+          <div class="min-w-0">
+            <p class="text-sm font-medium">{{ c.label }}</p>
+            <p v-if="c.detail" class="text-xs text-gray-500 break-words">{{ c.detail }}</p>
+            <p v-if="c.fix && c.status !== 'ok'" class="text-xs text-amber-400 break-words">Fix: {{ c.fix }}</p>
+          </div>
+        </li>
+      </ul>
+      <p class="text-xs text-gray-500">Read-only: this only looks at Twilio and the server, it never changes anything.</p>
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-lg p-5 flex flex-wrap items-center justify-between gap-4">
