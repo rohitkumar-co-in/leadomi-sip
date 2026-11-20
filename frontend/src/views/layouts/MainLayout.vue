@@ -66,7 +66,7 @@ async function handleLogout() {
       <div class="fixed inset-0 bg-black/75" @click="sidebarOpen = false" />
       <div ref="drawer" role="dialog" aria-modal="true" aria-label="Navigation" @keydown="drawerKey" class="mobile-drawer fixed inset-y-0 left-0 flex w-64 flex-col bg-white dark:bg-gray-800">
         <div class="flex h-16 shrink-0 items-center justify-between px-4">
-          <span class="text-lg font-bold gradient-text">LEADOMI SIP</span>
+          <RouterLink to="/" class="brand-wordmark" aria-label="Leadomi SIP dashboard" @click="sidebarOpen = false">Leadomi SIP</RouterLink>
           <button @click="sidebarOpen = false" aria-label="Close navigation" class="p-3 text-gray-500">
             <X class="h-6 w-6" />
           </button>
@@ -129,7 +129,7 @@ async function handleLogout() {
     <div class="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
       <div class="flex min-h-0 flex-1 flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div class="flex h-16 shrink-0 items-center px-4 border-b border-gray-200 dark:border-gray-700">
-          <span class="text-lg font-bold gradient-text">LEADOMI SIP</span>
+          <RouterLink to="/" class="brand-wordmark" aria-label="Leadomi SIP dashboard">Leadomi SIP</RouterLink>
         </div>
         <nav class="min-h-0 flex-1 overflow-y-auto space-y-1 px-2 py-4">
           <RouterLink
@@ -213,7 +213,7 @@ async function handleLogout() {
           <Menu class="h-6 w-6" />
         </button>
         <div class="flex flex-1 items-center justify-center">
-          <span class="text-lg font-bold gradient-text">LEADOMI SIP</span>
+          <RouterLink to="/" class="brand-wordmark" aria-label="Leadomi SIP dashboard">Leadomi SIP</RouterLink>
         </div>
         <div class="w-14" /> <!-- Spacer for symmetry -->
       </div>

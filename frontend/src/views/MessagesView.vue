@@ -68,6 +68,7 @@ const dids = ref<{ id: number; phone_number: string; friendly_name: string }[]>(
 const selectedDID = ref<number>(0)
 const sendingDID = ref<number>(0)
 const recipient=ref('')
+const singleNumber=computed(()=>dids.value.length===1)
 watch(selectedDID,()=>{messageRequest++;selectedMessages.value=[];selectedConversations.value=[];selectedConversation.value=null;messages.value=[];hasOlderMessages.value=false;sendingDID.value=selectedDID.value;loadConversations()})
 
 onMounted(async () => {
@@ -78,6 +79,8 @@ async function loadDIDs() {
   try {
     const response = await api.get('/dids')
     dids.value = response.data.data || []
+    // A single business number needs no picker: use it for viewing and sending.
+    if (dids.value.length === 1) { selectedDID.value = dids.value[0].id; sendingDID.value = dids.value[0].id }
   } catch {
     console.error('Failed to load DIDs')
   }
@@ -178,7 +181,7 @@ const sortedMessages = computed(() => {
       {{ error }}
     </div>
 
-    <div class="message-tools"><label class="text-sm">Business number<select v-model="selectedDID" :disabled="preparingConversations" class="ml-2 border rounded p-2"><option :value="0">All business numbers</option><option v-for="did in dids" :key="did.id" :value="did.id">{{did.phone_number}}</option></select></label><form @submit.prevent="/^\+[1-9][0-9]{7,14}$/.test(recipient)&&loadMessages(recipient)" class="new-conversation-form"><input v-model="recipient" aria-label="New conversation number" placeholder="+country-code-number" pattern="\+[1-9][0-9]{7,14}" required class="border rounded p-2 text-sm" /><button :disabled="preparingConversations" class="border rounded px-3 text-sm">New conversation</button></form></div>
+    <p v-if="singleNumber" class="text-sm text-gray-500 -mt-2">SMS for {{dids[0].phone_number}}</p><div class="message-tools"><label v-if="!singleNumber" class="text-sm">Business number<select v-model="selectedDID" :disabled="preparingConversations" class="ml-2 border rounded p-2"><option :value="0">All business numbers</option><option v-for="did in dids" :key="did.id" :value="did.id">{{did.phone_number}}</option></select></label><form @submit.prevent="/^\+[1-9][0-9]{7,14}$/.test(recipient)&&loadMessages(recipient)" class="new-conversation-form"><input v-model="recipient" aria-label="New conversation number" placeholder="Number with country code, e.g. +447700900000" pattern="\+[1-9][0-9]{7,14}" required class="border rounded p-2 text-sm" /><button :disabled="preparingConversations" class="border rounded px-4 text-sm whitespace-nowrap">New conversation</button></form></div>
     <div class="messages-workspace flex bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
       <!-- Conversations List -->
       <div
@@ -308,8 +311,8 @@ const sortedMessages = computed(() => {
 
           <!-- Input -->
           <div class="p-4 border-t border-gray-200 dark:border-gray-700">
-            <form @submit.prevent="sendMessage" class="message-composer">
-              <select
+            <form @submit.prevent="sendMessage" :class="['message-composer',{'single-number':singleNumber}]">
+              <select v-if="!singleNumber"
                 v-model="sendingDID" aria-label="Send from business number"
                 class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white text-sm"
               >
