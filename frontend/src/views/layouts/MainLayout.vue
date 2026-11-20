@@ -3,12 +3,10 @@ import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import {
   Phone,
-  Shield,
   MessageSquare,
   Voicemail,
   Settings,
   Users,
-  Route,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -38,9 +36,6 @@ onBeforeUnmount(()=>{window.removeEventListener('resize',resize);if(sidebarOpen.
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Phone Numbers', href: '/dids', icon: Phone },
-  { name: 'Excluded numbers', href: '/excluded-numbers', icon: Shield },
-  { name: 'Call Routing', href: '/routes', icon: Route },
-  { name: 'Call History', href: '/calls', icon: Phone },
   { name: 'Activity Log', href: '/activity', icon: LayoutDashboard },
   { name: 'Messages', href: '/messages', icon: MessageSquare },
   { name: 'Voicemails', href: '/voicemails', icon: Voicemail },

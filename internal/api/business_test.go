@@ -439,6 +439,22 @@ func TestEnvPhoneUserSync(t *testing.T) {
 	if device.PasswordHash != sip.GenerateHA1("leadomi", "gosip", "SecondPhonePassword2") {
 		t.Fatal("Phone password change was not applied")
 	}
+	// Choosing the number in the console requires the current review.
+	selectNumber := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("PUT", "/phone-number", strings.NewReader(body))
+		req = req.WithContext(context.WithValue(req.Context(), contextKeyUser, &models.User{ID: 1, Role: "admin"}))
+		rec := httptest.NewRecorder()
+		f.h.SelectPhoneNumber(rec, req)
+		return rec
+	}
+	assertStatus(t, selectNumber(`{"number":"+447782226484","number_review":"stale"}`), 409)
+	numbers, _ := f.h.numbers(ctx)
+	review, _ := f.h.reviewNumber(ctx, numbers[0])
+	assertStatus(t, selectNumber(fmt.Sprintf(`{"number":"+447782226484","number_review":%q}`, review.Fingerprint)), 200)
+	if f.h.phoneNumber(ctx) != "+447782226484" {
+		t.Fatal("Chosen phone number was not stored")
+	}
+	assertStatus(t, selectNumber(`{"number":"+15550000000","number_review":"x"}`), 400)
 	f.cfg.PhonePassword = "short"
 	if f.h.EnsureEnvPhoneUser(ctx) == nil {
 		t.Fatal("Invalid phone password was accepted")

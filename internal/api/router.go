@@ -244,6 +244,7 @@ func NewRouter(deps *Dependencies) chi.Router {
 				r.Use(AdminOnlyMiddleware)
 				r.Route("/business", func(r chi.Router) {
 					r.Get("/accounts", businessHandler.List)
+					r.Put("/phone-number", businessHandler.SelectPhoneNumber)
 					// With an environment-defined phone user the console cannot
 					// create, change, disable or delete SIP users.
 					if !businessHandler.envPhoneUserConfigured() {

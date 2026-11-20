@@ -50,19 +50,19 @@ const router = createRouter({
         {
           path: 'routes',
           name: 'routes',
-          component: () => import('@/views/RoutesView.vue')
+          redirect: '/'
         },
         {
           path: 'calls',
           name: 'calls',
-          component: () => import('@/views/ActivityView.vue')
+          redirect: '/activity'
         },
         {
           path: 'call-control',
           name: 'call-control',
           redirect: '/'
         },
-        {path:'excluded-numbers',name:'excluded-numbers',component:()=>import('@/views/ExcludedNumbersView.vue'),meta:{adminOnly:true}},
+        {path:'excluded-numbers',name:'excluded-numbers',redirect:'/'},
         {path:'activity',name:'activity',component:()=>import('@/views/ActivityView.vue')},
         {
           path: 'messages',
