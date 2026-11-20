@@ -60,6 +60,8 @@ func NewRouter(deps *Dependencies) chi.Router {
 		if err := businessHandler.bootstrap(context.Background()); err != nil {
 			slog.Error("Could not initialize business SIP account assignments")
 		}
+		// The phone user comes from the environment (see business_env.go).
+		go businessHandler.syncEnvPhoneUser()
 	}
 
 	// Health endpoints
@@ -242,10 +244,14 @@ func NewRouter(deps *Dependencies) chi.Router {
 				r.Use(AdminOnlyMiddleware)
 				r.Route("/business", func(r chi.Router) {
 					r.Get("/accounts", businessHandler.List)
-					r.Post("/accounts", businessHandler.Provision)
-					r.Put("/accounts/{id}", businessHandler.Provision)
-					r.Post("/accounts/{id}/disable", businessHandler.Disable)
-					r.Delete("/accounts/{id}", businessHandler.Delete)
+					// With an environment-defined phone user the console cannot
+					// create, change, disable or delete SIP users.
+					if !businessHandler.envPhoneUserConfigured() {
+						r.Post("/accounts", businessHandler.Provision)
+						r.Put("/accounts/{id}", businessHandler.Provision)
+						r.Post("/accounts/{id}/disable", businessHandler.Disable)
+						r.Delete("/accounts/{id}", businessHandler.Delete)
+					}
 					r.Get("/excluded-numbers", businessHandler.Exclusions)
 					r.Put("/excluded-numbers", businessHandler.Exclusions)
 					r.Delete("/excluded-numbers", businessHandler.Exclusions)

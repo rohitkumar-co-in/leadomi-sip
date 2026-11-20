@@ -27,14 +27,15 @@ const router = createRouter({
           component: () => import('@/views/BusinessStatusView.vue')
         },
         {
+          // The phone user is configured in the server environment.
           path: 'devices',
           name: 'devices',
-          component: () => import('@/views/SipUsersView.vue')
+          redirect: '/'
         },
         {
           path: 'provisioning',
           name: 'provisioning',
-          redirect: '/devices'
+          redirect: '/'
         },
         {
           path: 'dids',
@@ -44,7 +45,7 @@ const router = createRouter({
         {
           path: 'trunks',
           name: 'trunks',
-          redirect: '/devices'
+          redirect: '/'
         },
         {
           path: 'routes',
@@ -59,7 +60,7 @@ const router = createRouter({
         {
           path: 'call-control',
           name: 'call-control',
-          redirect: '/devices'
+          redirect: '/'
         },
         {path:'excluded-numbers',name:'excluded-numbers',component:()=>import('@/views/ExcludedNumbersView.vue'),meta:{adminOnly:true}},
         {path:'activity',name:'activity',component:()=>import('@/views/ActivityView.vue')},

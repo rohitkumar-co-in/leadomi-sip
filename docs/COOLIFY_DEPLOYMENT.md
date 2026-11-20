@@ -47,9 +47,11 @@ Add these as runtime variables (see [Configuration](CONFIGURATION.md)):
 | `PBX_PUBLIC_IP` | VPS public IPv4 |
 | `GOSIP_PBX_TRUNK_USER` | e.g. `leadomi_incoming` |
 | `GOSIP_PBX_TRUNK_PASSWORD` | `openssl rand -hex 24` |
-| `PBX_TWILIO_USER` | bootstrap credential username from Twilio |
+| `PBX_TWILIO_USER` | bootstrap credential username from Twilio; also the phone's SIP username |
 | `PBX_TWILIO_PASSWORD` | bootstrap credential password from Twilio |
-| `GOSIP_OUTBOUND_CALLER_ID` | an owned number in E.164, e.g. `+447700900000` |
+| `GOSIP_OUTBOUND_CALLER_ID` | the phone's owned Twilio number in E.164, e.g. `+447700900000` |
+| `GOSIP_PHONE_PASSWORD` | the phone (Linphone) password, 12–72 characters, no spaces |
+| `GOSIP_PHONE_NAME` | optional display name for the phone user |
 | `TZ` | e.g. `Asia/Kolkata` |
 
 Do **not** define `GOSIP_PBX_UNUSED_API_CREDENTIAL`. Leave
@@ -60,8 +62,12 @@ Do **not** define `GOSIP_PBX_UNUSED_API_CREDENTIAL`. Leave
 1. **Deploy.** Data volumes are created automatically. The PBX waits (up to 15
    minutes) until Coolify's proxy has a certificate for `PBX_DOMAIN`, then starts.
 2. Open `https://sip.example.com/setup` and create the first administrator.
-3. **SIP Users → Add SIP user**, pick your Twilio number, review connections,
-   confirm **Assign and provision**, and download the phone setup file.
+3. The server creates the phone user by itself from `PBX_TWILIO_USER`,
+   `GOSIP_OUTBOUND_CALLER_ID` and `GOSIP_PHONE_PASSWORD`, and points that
+   number's call/SMS webhooks at this server. The **Dashboard** shows its status
+   and the Linphone settings. There is no SIP Users page: to change the number or
+   password, edit the variables and redeploy. A restart of an already set-up
+   phone user does not change anything in Twilio.
 4. Set the Twilio SIP Domain's Voice URL to
    `https://sip.example.com/api/webhooks/voice/outgoing` (POST) if not already.
 5. Configure Linphone, then test an inbound and outbound call and SMS.

@@ -295,21 +295,31 @@ func TestBusinessPolicyAndSessionRevocation(t *testing.T) {
 	}
 }
 
-// A phone user may share the server's bootstrap Twilio credential username.
-// Provisioning adopts and rotates that credential; disabling never deletes it.
-func TestBusinessBootstrapUsernameProvisioning(t *testing.T) {
+type bootstrapFake struct {
+	h                *BusinessHandler
+	cfg              *config.Config
+	setup            *testSetup
+	rotated, pbxPass string
+	deleted, created bool
+	writes           int
+}
+
+// newBootstrapFake builds a business handler whose Twilio account already has a
+// "leadomi" bootstrap credential and owns +447782226484.
+func newBootstrapFake(t *testing.T) *bootstrapFake {
 	setup := setupTestAPI(t)
-	ctx := context.Background()
 	suffix := strings.Repeat("b", 32)
 	sid, list, domain, pn, cred := "AC"+suffix, "CL"+suffix, "SD"+suffix, "PN"+suffix, "CR"+suffix
-	cfg := &config.Config{TwilioAccountSID: sid, TwilioAuthToken: "secret-token", TwilioSIPDomain: "test.sip.twilio.com",
+	f := &bootstrapFake{setup: setup}
+	f.cfg = &config.Config{TwilioAccountSID: sid, TwilioAuthToken: "secret-token", TwilioSIPDomain: "test.sip.twilio.com",
 		TwilioSIPDomainSID: domain, TwilioCredentialListSID: list, TwilioBootstrapUser: "leadomi",
 		PublicURL: "https://sip.example.test", PBXSIPDomain: "sip.example.test", PBXURL: "http://pbx.test", PBXSecret: "pbx-secret"}
-	h := newBusinessHandler(&Dependencies{DB: setup.DB, Config: cfg})
-	var rotated, pbxPassword string
-	deleted, created := false, false
+	f.h = newBusinessHandler(&Dependencies{DB: setup.DB, Config: f.cfg})
 	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
+		if r.Method != "GET" {
+			f.writes++
+		}
 		switch {
 		case strings.HasSuffix(path, "/credentials"):
 			var v map[string]string
@@ -317,7 +327,7 @@ func TestBusinessBootstrapUsernameProvisioning(t *testing.T) {
 			if v["username"] != "leadomi" {
 				t.Error("PBX credential saved for wrong user")
 			}
-			pbxPassword = v["password"]
+			f.pbxPass = v["password"]
 			fmt.Fprint(w, `{"saved":true}`)
 		case strings.HasSuffix(path, "/registrations"):
 			fmt.Fprint(w, `[]`)
@@ -331,13 +341,13 @@ func TestBusinessBootstrapUsernameProvisioning(t *testing.T) {
 			fmt.Fprintf(w, `{"credentials":[{"sid":%q,"username":"leadomi"}]}`, cred)
 		case strings.HasSuffix(path, "/Credentials/"+cred+".json") && r.Method == "POST":
 			r.ParseForm()
-			rotated = r.Form.Get("Password")
+			f.rotated = r.Form.Get("Password")
 			fmt.Fprintf(w, `{"sid":%q}`, cred)
 		case strings.HasSuffix(path, "/Credentials.json") && r.Method == "POST":
-			created = true
+			f.created = true
 			fmt.Fprintf(w, `{"sid":%q}`, cred)
 		case strings.Contains(path, "/Credentials/") && r.Method == "DELETE":
-			deleted = true
+			f.deleted = true
 			w.WriteHeader(204)
 		case strings.HasSuffix(path, "/Services"):
 			fmt.Fprint(w, `{"services":[],"meta":{}}`)
@@ -348,36 +358,44 @@ func TestBusinessBootstrapUsernameProvisioning(t *testing.T) {
 			w.WriteHeader(404)
 		}
 	}))
-	defer fake.Close()
+	t.Cleanup(fake.Close)
 	fakeURL, _ := url.Parse(fake.URL)
-	h.client = &http.Client{Transport: businessTransport(func(r *http.Request) (*http.Response, error) {
+	f.h.client = &http.Client{Transport: businessTransport(func(r *http.Request) (*http.Response, error) {
 		copy := r.Clone(r.Context())
 		u := *r.URL
 		u.Scheme, u.Host = fakeURL.Scheme, fakeURL.Host
 		copy.URL = &u
 		return http.DefaultTransport.RoundTrip(copy)
 	})}
+	return f
+}
+
+// A phone user may share the server's bootstrap Twilio credential username.
+// Provisioning adopts and rotates that credential; disabling never deletes it.
+func TestBusinessBootstrapUsernameProvisioning(t *testing.T) {
+	f := newBootstrapFake(t)
+	ctx := context.Background()
 	invoke := func(method, path, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
 		req = req.WithContext(context.WithValue(req.Context(), contextKeyUser, &models.User{ID: 1, Role: "admin"}))
 		rec := httptest.NewRecorder()
 		router := chi.NewRouter()
-		router.Post("/accounts", h.Provision)
-		router.Post("/accounts/{id}/disable", h.Disable)
+		router.Post("/accounts", f.h.Provision)
+		router.Post("/accounts/{id}/disable", f.h.Disable)
 		router.ServeHTTP(rec, req)
 		return rec
 	}
-	numbers, err := h.numbers(ctx)
+	numbers, err := f.h.numbers(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	review, err := h.reviewNumber(ctx, numbers[0])
+	review, err := f.h.reviewNumber(ctx, numbers[0])
 	if err != nil {
 		t.Fatal(err)
 	}
 	result := invoke("POST", "/accounts", fmt.Sprintf(`{"name":"Leadomi","username":"leadomi","number":"+447782226484","number_review":%q}`, review.Fingerprint))
 	assertStatus(t, result, 200)
-	if created || rotated == "" || pbxPassword != rotated {
+	if f.created || f.rotated == "" || f.pbxPass != f.rotated {
 		t.Fatal("Bootstrap credential was not adopted and rotated into the PBX")
 	}
 	var response struct {
@@ -385,7 +403,44 @@ func TestBusinessBootstrapUsernameProvisioning(t *testing.T) {
 	}
 	json.Unmarshal(result.Body.Bytes(), &response)
 	assertStatus(t, invoke("POST", fmt.Sprintf("/accounts/%d/disable", response.ID), ""), 200)
-	if deleted {
+	if f.deleted {
 		t.Fatal("Disabling the phone user deleted the server's bootstrap credential")
+	}
+}
+
+// The environment-defined phone user is provisioned once; restarts do not write
+// to Twilio, and a changed GOSIP_PHONE_PASSWORD only updates the local digest.
+func TestEnvPhoneUserSync(t *testing.T) {
+	f := newBootstrapFake(t)
+	ctx := context.Background()
+	f.cfg.OutboundCallerID = "+447782226484"
+	f.cfg.PhonePassword = "FirstPhonePassword1"
+	if err := f.h.EnsureEnvPhoneUser(ctx); err != nil {
+		t.Fatal(err)
+	}
+	device, err := f.setup.DB.Devices.GetByUsername(ctx, "leadomi")
+	if err != nil || device.PasswordHash != sip.GenerateHA1("leadomi", "gosip", "FirstPhonePassword1") {
+		t.Fatal("Environment phone user was not created with its password")
+	}
+	var number, state string
+	f.setup.DB.Conn().QueryRow("SELECT number,state FROM sip_accounts WHERE device_id=?", device.ID).Scan(&number, &state)
+	if number != "+447782226484" || state != "ready" || f.pbxPass == "" {
+		t.Fatal("Environment phone user was not provisioned")
+	}
+	writes := f.writes
+	if err = f.h.EnsureEnvPhoneUser(ctx); err != nil || f.writes != writes {
+		t.Fatal("A restart re-provisioned a ready phone user")
+	}
+	f.cfg.PhonePassword = "SecondPhonePassword2"
+	if err = f.h.EnsureEnvPhoneUser(ctx); err != nil || f.writes != writes {
+		t.Fatal("A phone password change wrote to Twilio")
+	}
+	device, _ = f.setup.DB.Devices.GetByUsername(ctx, "leadomi")
+	if device.PasswordHash != sip.GenerateHA1("leadomi", "gosip", "SecondPhonePassword2") {
+		t.Fatal("Phone password change was not applied")
+	}
+	f.cfg.PhonePassword = "short"
+	if f.h.EnsureEnvPhoneUser(ctx) == nil {
+		t.Fatal("Invalid phone password was accepted")
 	}
 }

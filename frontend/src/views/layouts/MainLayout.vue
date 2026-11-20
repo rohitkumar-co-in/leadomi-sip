@@ -8,7 +8,6 @@ import {
   Voicemail,
   Settings,
   Users,
-  Monitor,
   Route,
   LayoutDashboard,
   LogOut,
@@ -38,7 +37,6 @@ onBeforeUnmount(()=>{window.removeEventListener('resize',resize);if(sidebarOpen.
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'SIP Users', href: '/devices', icon: Monitor },
   { name: 'Phone Numbers', href: '/dids', icon: Phone },
   { name: 'Excluded numbers', href: '/excluded-numbers', icon: Shield },
   { name: 'Call Routing', href: '/routes', icon: Route },
