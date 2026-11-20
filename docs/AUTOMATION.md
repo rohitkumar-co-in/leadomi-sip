@@ -22,9 +22,12 @@ Then in the console **Settings → Missed-call text-back & AI replies**:
 
 - **Demo mode** — on: calls are rejected as busy and the caller is texted at
   once; off: the phone rings 30 s and only unanswered calls are texted.
-- **AI replies to SMS** — incoming SMS are forwarded to the assistant. When a
-  person replies from the phone or Messages, the AI pauses for that contact for
-  24 hours.
+- **AI replies to SMS** — only people who **called** are answered by the
+  assistant: a missed call (or demo-mode call) opens a 24-hour AI conversation
+  for that number, extended by each of their replies. Replies to outreach texts
+  from people who never called go to the phone and Messages only. When a person
+  replies from the phone or Messages, the AI pauses for that contact for 24
+  hours.
 
 ## Events the server sends to n8n
 

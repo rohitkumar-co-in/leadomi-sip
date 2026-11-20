@@ -96,10 +96,20 @@ func TestAutomationSMSForwardingAndHandover(t *testing.T) {
 	// AI off: nothing is forwarded.
 	handleAutomationSMS(ctx, deps, customer, "+447782226484", "Hello", "SM1")
 	setup.DB.Config.Set(ctx, automationAIKey, "true")
-	handleAutomationSMS(ctx, deps, customer, "+447782226484", "My boiler is broken", "SM2")
-	events := recorder.waitEvents(1)
-	if len(events) != 1 || events[0]["From"] != customer || events[0]["Body"] != "My boiler is broken" || events[0]["Event"] != "sms" || recorder.keys[0] != testAutomationKey {
-		t.Fatalf("SMS was not forwarded to n8n with Twilio fields and key: %v", events)
+	// A reply from someone who never called (e.g. to outreach) never reaches the AI.
+	handleAutomationSMS(ctx, deps, customer, "+447782226484", "Who is this?", "SM1b")
+	time.Sleep(100 * time.Millisecond)
+	if events := recorder.waitEvents(0); len(events) != 0 {
+		t.Fatalf("Outreach reply reached the AI: %v", events)
+	}
+	// Calling opens the AI conversation for that number.
+	setup.DB.Config.Set(ctx, automationDemoKey, "false")
+	notifyMissedCall(ctx, deps, customer, "+447782226484", "CA-session", "no-answer", false)
+	recorder.waitEvents(1)
+	handleAutomationSMS(ctx, deps, customer, "+447782226484", "My car needs an MOT", "SM2")
+	events := recorder.waitEvents(2)
+	if len(events) != 2 || events[1]["From"] != customer || events[1]["Body"] != "My car needs an MOT" || events[1]["Event"] != "sms" || recorder.keys[1] != testAutomationKey {
+		t.Fatalf("Caller's SMS was not forwarded to n8n with Twilio fields and key: %v", events)
 	}
 	// "Yes" is part of a booking conversation, not an opt-in keyword.
 	if smsKeyword("Yes") != "" || smsKeyword("cancel") != "" || smsKeyword(" stop ") != "stop" {
@@ -117,7 +127,7 @@ func TestAutomationSMSForwardingAndHandover(t *testing.T) {
 	// STOP opts out and is never forwarded.
 	handleAutomationSMS(ctx, deps, "+447700900004", "+447782226484", "STOP", "SM4")
 	time.Sleep(100 * time.Millisecond)
-	if events = recorder.waitEvents(1); len(events) != 1 {
+	if events = recorder.waitEvents(2); len(events) != 2 {
 		t.Fatalf("Paused or STOP conversations reached the AI: %v", events)
 	}
 	if !getAutomationContact(ctx, deps, "+447700900004").OptedOut {

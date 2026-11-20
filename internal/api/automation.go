@@ -23,11 +23,15 @@ import (
 // X-Leadomi-Key header (GOSIP_AUTOMATION_KEY).
 
 const (
-	automationKeyHeader   = "X-Leadomi-Key"
-	automationActor       = "Automation (n8n)"
-	automationDemoKey     = "automation_demo_mode"
-	automationAIKey       = "automation_ai_enabled"
-	automationHumanPause  = 24 * time.Hour
+	automationKeyHeader  = "X-Leadomi-Key"
+	automationActor      = "Automation (n8n)"
+	automationDemoKey    = "automation_demo_mode"
+	automationAIKey      = "automation_ai_enabled"
+	automationHumanPause = 24 * time.Hour
+	// A missed call lets the AI answer that caller for this long; each
+	// forwarded reply extends it. Other texts (e.g. outreach replies) never
+	// reach the AI.
+	automationCallSession = 24 * time.Hour
 	automationMinKeyBytes = 32
 )
 
@@ -65,16 +69,20 @@ func automationAIEnabled(ctx context.Context, deps *Dependencies) bool {
 }
 
 type automationContact struct {
-	OptedOut    bool
-	PausedUntil *time.Time
+	OptedOut     bool
+	PausedUntil  *time.Time
+	SessionUntil *time.Time
 }
 
 func getAutomationContact(ctx context.Context, deps *Dependencies, number string) automationContact {
 	var c automationContact
-	var paused sql.NullTime
-	deps.DB.Conn().QueryRowContext(ctx, "SELECT opted_out,ai_paused_until FROM automation_contacts WHERE number=?", number).Scan(&c.OptedOut, &paused)
+	var paused, session sql.NullTime
+	deps.DB.Conn().QueryRowContext(ctx, "SELECT opted_out,ai_paused_until,ai_session_until FROM automation_contacts WHERE number=?", number).Scan(&c.OptedOut, &paused, &session)
 	if paused.Valid {
 		c.PausedUntil = &paused.Time
+	}
+	if session.Valid {
+		c.SessionUntil = &session.Time
 	}
 	return c
 }
@@ -90,6 +98,14 @@ func pauseAutomationAI(ctx context.Context, deps *Dependencies, number string) {
 	until := time.Now().UTC().Add(automationHumanPause)
 	if _, err := deps.DB.Conn().ExecContext(ctx, "INSERT INTO automation_contacts(number,ai_paused_until) VALUES(?,?) ON CONFLICT(number) DO UPDATE SET ai_paused_until=excluded.ai_paused_until,updated_at=CURRENT_TIMESTAMP", number, until); err != nil {
 		slog.Error("Could not pause AI for conversation", "error", err)
+	}
+}
+
+// openAutomationSession lets the AI answer this caller for automationCallSession.
+func openAutomationSession(ctx context.Context, deps *Dependencies, number string) {
+	until := time.Now().UTC().Add(automationCallSession)
+	if _, err := deps.DB.Conn().ExecContext(ctx, "INSERT INTO automation_contacts(number,ai_session_until) VALUES(?,?) ON CONFLICT(number) DO UPDATE SET ai_session_until=excluded.ai_session_until,updated_at=CURRENT_TIMESTAMP", number, until); err != nil {
+		slog.Error("Could not open AI session for caller", "error", err)
 	}
 }
 
@@ -177,6 +193,8 @@ func notifyMissedCall(ctx context.Context, deps *Dependencies, from, to, callSID
 	if getAutomationContact(ctx, deps, from).OptedOut {
 		return
 	}
+	// Calling is what invites the AI conversation.
+	openAutomationSession(ctx, deps, from)
 	demoValue := "false"
 	if demo {
 		demoValue = "true"
@@ -187,7 +205,9 @@ func notifyMissedCall(ctx context.Context, deps *Dependencies, from, to, callSID
 }
 
 // handleAutomationSMS processes opt-out keywords and forwards the message to
-// the n8n assistant when AI replies are on and no human has taken over.
+// the n8n assistant only for contacts who called (open session), when AI
+// replies are on and no human has taken over. Replies to outreach texts from
+// people who never called go to the phone and Messages only.
 func handleAutomationSMS(ctx context.Context, deps *Dependencies, from, to, body, messageSID string) {
 	if !e164Destination.MatchString(from) {
 		return
@@ -204,9 +224,12 @@ func handleAutomationSMS(ctx context.Context, deps *Dependencies, from, to, body
 		return
 	}
 	contact := getAutomationContact(ctx, deps, from)
-	if contact.OptedOut || (contact.PausedUntil != nil && time.Now().Before(*contact.PausedUntil)) {
+	now := time.Now()
+	if contact.OptedOut || contact.SessionUntil == nil || !now.Before(*contact.SessionUntil) ||
+		(contact.PausedUntil != nil && now.Before(*contact.PausedUntil)) {
 		return
 	}
+	openAutomationSession(ctx, deps, from) // keep an active conversation going
 	postAutomationEvent(deps, deps.Config.AutomationSMSURL, map[string]string{
 		"Event": "sms", "From": from, "To": to, "Body": body, "MessageSid": messageSID,
 	})
