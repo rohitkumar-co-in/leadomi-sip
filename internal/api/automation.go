@@ -32,6 +32,9 @@ const (
 	// forwarded reply extends it. Other texts (e.g. outreach replies) never
 	// reach the AI.
 	automationCallSession = 24 * time.Hour
+	// automationMaxAITurns caps AI replies per conversation (per missed call),
+	// so a chatty or abusive contact cannot run up AI and SMS costs.
+	automationMaxAITurns  = 12
 	automationMinKeyBytes = 32
 )
 
@@ -107,6 +110,32 @@ func openAutomationSession(ctx context.Context, deps *Dependencies, number strin
 	if _, err := deps.DB.Conn().ExecContext(ctx, "INSERT INTO automation_contacts(number,ai_session_until) VALUES(?,?) ON CONFLICT(number) DO UPDATE SET ai_session_until=excluded.ai_session_until,updated_at=CURRENT_TIMESTAMP", number, until); err != nil {
 		slog.Error("Could not open AI session for caller", "error", err)
 	}
+}
+
+// startAutomationSession opens a fresh AI conversation for a caller,
+// resetting the reply count.
+func startAutomationSession(ctx context.Context, deps *Dependencies, number string) {
+	until := time.Now().UTC().Add(automationCallSession)
+	if _, err := deps.DB.Conn().ExecContext(ctx, "INSERT INTO automation_contacts(number,ai_session_until,ai_turns) VALUES(?,?,0) ON CONFLICT(number) DO UPDATE SET ai_session_until=excluded.ai_session_until,ai_turns=0,updated_at=CURRENT_TIMESTAMP", number, until); err != nil {
+		slog.Error("Could not open AI session for caller", "error", err)
+	}
+}
+
+// endAutomationSession hands the conversation to people: later texts from
+// this number reach only the phone and Messages until the next missed call.
+func endAutomationSession(ctx context.Context, deps *Dependencies, number string) error {
+	_, err := deps.DB.Conn().ExecContext(ctx, "UPDATE automation_contacts SET ai_session_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE number=?", number)
+	return err
+}
+
+// takeAutomationTurn reserves one AI reply; false once the cap is reached.
+func takeAutomationTurn(ctx context.Context, deps *Dependencies, number string) bool {
+	res, err := deps.DB.Conn().ExecContext(ctx, "UPDATE automation_contacts SET ai_turns=ai_turns+1 WHERE number=? AND ai_turns<?", number, automationMaxAITurns)
+	if err != nil {
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n == 1
 }
 
 // smsKeyword returns "stop", "start" or "" for UK/US opt-out keywords.
@@ -194,7 +223,7 @@ func notifyMissedCall(ctx context.Context, deps *Dependencies, from, to, callSID
 		return
 	}
 	// Calling is what invites the AI conversation.
-	openAutomationSession(ctx, deps, from)
+	startAutomationSession(ctx, deps, from)
 	demoValue := "false"
 	if demo {
 		demoValue = "true"
@@ -227,6 +256,10 @@ func handleAutomationSMS(ctx context.Context, deps *Dependencies, from, to, body
 	now := time.Now()
 	if contact.OptedOut || contact.SessionUntil == nil || !now.Before(*contact.SessionUntil) ||
 		(contact.PausedUntil != nil && now.Before(*contact.PausedUntil)) {
+		return
+	}
+	if !takeAutomationTurn(ctx, deps, from) {
+		slog.Info("AI reply limit reached; conversation left to people", "limit", automationMaxAITurns)
 		return
 	}
 	openAutomationSession(ctx, deps, from) // keep an active conversation going
@@ -296,6 +329,37 @@ func (h *AutomationHandler) SendSMS(w http.ResponseWriter, r *http.Request) {
 	r.Body = io.NopCloser(bytes.NewReader(body))
 	r = r.WithContext(context.WithValue(r.Context(), messageActorKey{}, automationActor))
 	NewMessageHandler(h.deps).Send(w, r)
+}
+
+// EndSession lets n8n end the AI conversation for a number, e.g. after a
+// booking: {"number":"+44..."} ("to"/"From" also accepted).
+func (h *AutomationHandler) EndSession(w http.ResponseWriter, r *http.Request) {
+	if !h.authorized(r) {
+		WriteError(w, http.StatusUnauthorized, ErrCodeAuthentication, "Invalid automation key", nil)
+		return
+	}
+	var input struct {
+		Number string `json:"number"`
+		To     string `json:"to"`
+		From   string `json:"From"`
+	}
+	json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&input)
+	number := input.Number
+	for _, candidate := range []string{input.To, input.From} {
+		if number == "" {
+			number = candidate
+		}
+	}
+	number = strings.TrimSpace(number)
+	if !e164Destination.MatchString(number) {
+		WriteValidationError(w, "Send JSON with number in +country-code format", nil)
+		return
+	}
+	if err := endAutomationSession(r.Context(), h.deps, number); err != nil {
+		WriteInternalError(w)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]string{"number": number, "ai": "ended"})
 }
 
 type automationSettings struct {

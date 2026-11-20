@@ -65,3 +65,13 @@ runs the real missed-call path (n8n text-back, AI session); typing a message
 sends it as the customer through the real SMS path (phone, Messages, AI).
 Replies to these numbers — from n8n, the AI, the phone or Messages — are stored
 with status `simulated` and are never sent to Twilio.
+
+## Stopping the AI (cost control)
+
+- **After a booking** n8n calls
+  `POST /api/automation/session/end` with `{"number":"+44…"}` and the
+  `X-Leadomi-Key` header. Later texts from that number go to the phone and
+  Messages only, until they make another missed call.
+- **Reply cap**: the AI answers at most 12 messages per conversation; after
+  that the conversation is left to people. A new missed call starts a new
+  conversation.

@@ -165,3 +165,41 @@ func TestAutomationMissedCall(t *testing.T) {
 		t.Fatal("Automation ran without a key")
 	}
 }
+
+func TestAutomationSessionEndAndTurnCap(t *testing.T) {
+	setup, deps, recorder := setupAutomation(t)
+	ctx := context.Background()
+	setup.DB.Config.Set(ctx, automationAIKey, "true")
+	caller := "+447700900301"
+	notifyMissedCall(ctx, deps, caller, "+447782226484", "CA-cap", "no-answer", false)
+	recorder.waitEvents(1)
+	// The AI answers at most automationMaxAITurns messages per conversation.
+	for i := 0; i < automationMaxAITurns+3; i++ {
+		handleAutomationSMS(ctx, deps, caller, "+447782226484", "hello", "SM-cap")
+	}
+	time.Sleep(150 * time.Millisecond)
+	if events := recorder.waitEvents(1 + automationMaxAITurns); len(events) != 1+automationMaxAITurns {
+		t.Fatalf("expected %d AI events, got %d", automationMaxAITurns, len(events)-1)
+	}
+	// A new missed call starts a fresh conversation.
+	notifyMissedCall(ctx, deps, caller, "+447782226484", "CA-cap-2", "no-answer", false)
+	handleAutomationSMS(ctx, deps, caller, "+447782226484", "back again", "SM-cap-2")
+	if events := recorder.waitEvents(3 + automationMaxAITurns); len(events) != 3+automationMaxAITurns {
+		t.Fatalf("new call did not reset the conversation: %d events", len(events))
+	}
+	// n8n ends the session after a booking: later texts go to people only.
+	end := func(key, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", "/api/automation/session/end", strings.NewReader(body))
+		req.Header.Set(automationKeyHeader, key)
+		rec := httptest.NewRecorder()
+		NewAutomationHandler(deps).EndSession(rec, req)
+		return rec
+	}
+	assertStatus(t, end("wrong", `{"number":"`+caller+`"}`), 401)
+	assertStatus(t, end(testAutomationKey, `{"From":"`+caller+`"}`), 200)
+	handleAutomationSMS(ctx, deps, caller, "+447782226484", "thanks!", "SM-cap-3")
+	time.Sleep(100 * time.Millisecond)
+	if events := recorder.waitEvents(3 + automationMaxAITurns); len(events) != 3+automationMaxAITurns {
+		t.Fatalf("AI replied after the session ended: %d events", len(events))
+	}
+}
