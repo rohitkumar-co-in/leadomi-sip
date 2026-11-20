@@ -178,7 +178,9 @@ func (h *MessageHandler) Send(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusBadRequest, ErrCodeBadRequest, "DID is not SMS-enabled", nil)
 		return
 	}
-	if !businessDestinationAllowed(r.Context(), h.deps, req.ToNumber) {
+	// Fictional simulator numbers are never sent to Twilio (see simulator.go).
+	simulated := isSimulatorNumber(req.ToNumber)
+	if !simulated && !businessDestinationAllowed(r.Context(), h.deps, req.ToNumber) {
 		WriteError(w, 403, ErrCodeAuthorization, "This destination is blocked by the business usage policy", nil)
 		return
 	}
@@ -239,6 +241,12 @@ func (h *MessageHandler) Send(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
+		if simulated {
+			if dbErr := h.deps.DB.Messages.UpdateStatus(ctx, message.ID, "simulated"); dbErr != nil {
+				slog.Error("Failed to update message status", "error", dbErr, "message_id", message.ID)
+			}
+			return
+		}
 		if h.deps.Twilio != nil {
 			twilioSID, sendErr := h.deps.Twilio.SendSMS(did.Number, req.ToNumber, req.Body, req.MediaURLs)
 			if sendErr != nil {

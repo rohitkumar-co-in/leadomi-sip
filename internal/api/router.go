@@ -57,6 +57,7 @@ func NewRouter(deps *Dependencies) chi.Router {
 	trunkHandler := NewTrunkHandler(deps)
 	businessHandler := newBusinessHandler(deps)
 	automationHandler := NewAutomationHandler(deps)
+	simulatorHandler := NewSimulatorHandler(deps)
 	if deps.Config.PBXURL != "" {
 		if err := businessHandler.bootstrap(context.Background()); err != nil {
 			slog.Error("Could not initialize business SIP account assignments")
@@ -249,6 +250,7 @@ func NewRouter(deps *Dependencies) chi.Router {
 					r.Get("/accounts", businessHandler.List)
 					r.Put("/phone-number", businessHandler.SelectPhoneNumber)
 					r.Get("/automation", automationHandler.Settings)
+					r.Post("/simulator", simulatorHandler.Simulate)
 					r.Put("/automation", automationHandler.Settings)
 					// With an environment-defined phone user the console cannot
 					// create, change, disable or delete SIP users.

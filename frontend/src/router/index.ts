@@ -64,6 +64,7 @@ const router = createRouter({
         },
         {path:'excluded-numbers',name:'excluded-numbers',redirect:'/'},
         {path:'activity',name:'activity',component:()=>import('@/views/ActivityView.vue')},
+        {path:'simulator',name:'simulator',component:()=>import('@/views/SimulatorView.vue'),meta:{adminOnly:true}},
         {
           path: 'messages',
           name: 'messages',

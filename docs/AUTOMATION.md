@@ -56,3 +56,12 @@ The message is sent from the phone's number, appears in Messages, counts
 toward the per-minute SMS limit and allowed-country policy, and is refused with
 403 for contacts who texted STOP (START opts back in). Use the same endpoint for
 outreach; send slowly and only to contacts who may lawfully be messaged.
+
+## Simulator (no phone needed)
+
+**Simulator** in the console acts as a customer from a fictional UK number in
+Ofcom's reserved range `+447700900000`–`+447700900999`. *Simulate missed call*
+runs the real missed-call path (n8n text-back, AI session); typing a message
+sends it as the customer through the real SMS path (phone, Messages, AI).
+Replies to these numbers — from n8n, the AI, the phone or Messages — are stored
+with status `simulated` and are never sent to Twilio.

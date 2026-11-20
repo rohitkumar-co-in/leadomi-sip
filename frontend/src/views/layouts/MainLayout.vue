@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 import {
   Phone,
   MessageSquare,
+  FlaskConical,
   Voicemail,
   Settings,
   Users,
@@ -38,6 +39,7 @@ const navigation = [
   { name: 'Phone Numbers', href: '/dids', icon: Phone },
   { name: 'Activity Log', href: '/activity', icon: LayoutDashboard },
   { name: 'Messages', href: '/messages', icon: MessageSquare },
+  { name: 'Simulator', href: '/simulator', icon: FlaskConical },
   { name: 'Voicemails', href: '/voicemails', icon: Voicemail },
   { name: 'Settings', href: '/settings', icon: Settings }
 ]
