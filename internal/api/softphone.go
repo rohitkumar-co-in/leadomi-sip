@@ -87,7 +87,31 @@ func (h *WebhookHandler) VoiceOutgoing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.recordVoiceCall(r.Context(), r.FormValue("CallSid"), "outbound", did.Number, number, did.ID, &device.ID)
-	h.respondTwiML(w, `<Response><Dial answerOnBridge="true" callerId="`+escapeXML(did.Number)+`"><Number>`+escapeXML(number)+`</Number></Dial></Response>`)
+	// The action URL reports how the call ended; SIP-domain calls get no
+	// number-level status callback, so without it the record stays "ringing".
+	h.respondTwiML(w, `<Response><Dial answerOnBridge="true" callerId="`+escapeXML(did.Number)+`" action="/api/webhooks/voice/outgoing-complete"><Number>`+escapeXML(number)+`</Number></Dial></Response>`)
+}
+
+// VoiceOutgoingComplete records how a phone-originated call ended.
+func (h *WebhookHandler) VoiceOutgoingComplete(w http.ResponseWriter, r *http.Request) {
+	if r.ParseForm() != nil || !h.validateSignature(r) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	status := r.FormValue("DialCallStatus")
+	if status == "answered" {
+		status = "completed"
+	}
+	if cdr, err := h.deps.DB.CDRs.GetByCallSID(r.Context(), r.FormValue("CallSid")); err == nil && historyTerminal("call", status) {
+		now := time.Now()
+		cdr.Disposition = status
+		cdr.Duration, _ = strconv.Atoi(r.FormValue("DialCallDuration"))
+		cdr.EndedAt = &now
+		if dbErr := h.deps.DB.CDRs.Update(r.Context(), cdr); dbErr != nil {
+			slog.Error("failed to update outgoing call record", "error", dbErr)
+		}
+	}
+	h.respondTwiML(w, `<Response><Hangup/></Response>`)
 }
 
 func (h *WebhookHandler) recordVoiceCall(ctx context.Context, callSID, direction, from, to string, didID int64, deviceID *int64) {

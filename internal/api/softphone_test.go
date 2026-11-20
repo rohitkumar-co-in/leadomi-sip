@@ -134,3 +134,32 @@ func TestSoftphoneRingAndVoicemailFallback(t *testing.T) {
 		}
 	}
 }
+
+// Phone-originated calls report their outcome through the Dial action, so the
+// record leaves "ringing" and can later be deleted.
+func TestSoftphoneOutboundCallOutcomeRecorded(t *testing.T) {
+	setup := setupTestAPI(t)
+	cfg := &config.Config{TwilioAccountSID: "AC-test", TwilioAuthToken: "test-token", TwilioSIPDomain: "test.sip.twilio.com", OutboundCallerID: "+447575746354", PublicURL: "https://sip.example.test"}
+	h := NewWebhookHandler(&Dependencies{Config: cfg, DB: setup.DB})
+	did := &models.DID{Number: cfg.OutboundCallerID, VoiceEnabled: true}
+	if err := setup.DB.DIDs.Create(context.Background(), did); err != nil {
+		t.Fatal(err)
+	}
+	createTestDevice(t, setup.DB, "Mobile", "mobile")
+	fields := url.Values{"AccountSid": {"AC-test"}, "CallSid": {"CA-outcome"}, "From": {"sip:mobile@test.sip.twilio.com"}, "To": {"sip:+441234567890@test.sip.twilio.com"}}
+	rr := httptest.NewRecorder()
+	h.VoiceOutgoing(rr, signedSoftphoneRequest(cfg.PublicURL+"/api/webhooks/voice/outgoing", fields))
+	if !strings.Contains(rr.Body.String(), `action="/api/webhooks/voice/outgoing-complete"`) {
+		t.Fatalf("outgoing Dial has no completion action: %s", rr.Body.String())
+	}
+	done := url.Values{"AccountSid": {"AC-test"}, "CallSid": {"CA-outcome"}, "DialCallStatus": {"no-answer"}, "DialCallDuration": {"0"}}
+	rr = httptest.NewRecorder()
+	h.VoiceOutgoingComplete(rr, signedSoftphoneRequest(cfg.PublicURL+"/api/webhooks/voice/outgoing-complete", done))
+	cdr, err := setup.DB.CDRs.GetByCallSID(context.Background(), "CA-outcome")
+	if err != nil || cdr.Disposition != "no-answer" || cdr.EndedAt == nil || !historyTerminal("call", cdr.Disposition) {
+		t.Fatalf("outgoing call outcome was not recorded: %+v %v", cdr, err)
+	}
+	if !historyTerminal("sms", "simulated") {
+		t.Fatal("simulated messages must be deletable")
+	}
+}

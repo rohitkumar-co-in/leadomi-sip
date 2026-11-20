@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rohitkumar-co-in/leadomi-sip/internal/db"
@@ -68,6 +69,11 @@ func (h *BusinessHandler) DeleteActivity(w http.ResponseWriter, r *http.Request)
 		}
 		sid, status = call.CallSID, call.Disposition
 		path = "/Calls/" + sid + ".json"
+		// Twilio ends every call within 4 hours; a record still "active" after
+		// that only missed its final status update.
+		if !historyTerminal(kind, status) && !call.StartedAt.IsZero() && time.Since(call.StartedAt) > 4*time.Hour {
+			status = "completed"
+		}
 	}
 	if !historyTerminal(kind, status) {
 		WriteError(w, 409, "HISTORY_ACTIVE", "Wait until this call or message has finished before deleting it", nil)
@@ -123,7 +129,7 @@ func historyTerminal(kind, status string) bool {
 	}
 	if kind == "sms" {
 		switch status {
-		case "received", "delivered", "undelivered", "failed", "canceled", "read", "sent":
+		case "received", "delivered", "undelivered", "failed", "canceled", "read", "sent", "simulated":
 			return true
 		}
 	}

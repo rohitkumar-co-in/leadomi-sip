@@ -103,6 +103,7 @@ func NewRouter(deps *Dependencies) chi.Router {
 			r.Post("/voice/incoming", webhookHandler.VoiceIncoming)
 			r.Post("/voice/outgoing", webhookHandler.VoiceOutgoing)
 			r.Post("/voice/dial-complete", webhookHandler.VoiceDialComplete)
+			r.Post("/voice/outgoing-complete", webhookHandler.VoiceOutgoingComplete)
 			r.Post("/voicemail/recording", webhookHandler.VoicemailRecording)
 			r.Post("/voice/status", webhookHandler.VoiceStatus)
 			r.Post("/sms/incoming", webhookHandler.SMSIncoming)
