@@ -547,7 +547,7 @@ func (h *WebhookHandler) executeAction(ctx context.Context, route *models.Route,
 				return h.errorTwiML("Forwarding destination is blocked by your business usage policy")
 			}
 			return `<Response>
-				<Dial callerId="` + escapeXML(did.Number) + `">
+				<Dial answerOnBridge="true" callerId="` + escapeXML(did.Number) + `">
 					<Number>` + escapeXML(data.Number) + `</Number>
 				</Dial>
 			</Response>`

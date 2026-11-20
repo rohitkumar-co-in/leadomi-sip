@@ -87,7 +87,7 @@ func (h *WebhookHandler) VoiceOutgoing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.recordVoiceCall(r.Context(), r.FormValue("CallSid"), "outbound", did.Number, number, did.ID, &device.ID)
-	h.respondTwiML(w, `<Response><Dial callerId="`+escapeXML(did.Number)+`"><Number>`+escapeXML(number)+`</Number></Dial></Response>`)
+	h.respondTwiML(w, `<Response><Dial answerOnBridge="true" callerId="`+escapeXML(did.Number)+`"><Number>`+escapeXML(number)+`</Number></Dial></Response>`)
 }
 
 func (h *WebhookHandler) recordVoiceCall(ctx context.Context, callSID, direction, from, to string, didID int64, deviceID *int64) {

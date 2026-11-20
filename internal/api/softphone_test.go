@@ -68,6 +68,11 @@ func TestSoftphoneOutboundRouting(t *testing.T) {
 			if strings.Contains(rr.Body.String(), "<Number>") != test.accepted {
 				t.Fatal(rr.Body.String())
 			}
+			// Twilio must not answer the phone's leg before the callee does,
+			// otherwise cancelling from the phone cannot stop the far end ringing.
+			if test.accepted && !strings.Contains(rr.Body.String(), `answerOnBridge="true"`) {
+				t.Fatal("Outgoing calls must answer only when bridged")
+			}
 			if test.accepted && !strings.Contains(rr.Body.String(), `callerId="+447575746354"`) {
 				t.Fatal("wrong caller ID")
 			}
