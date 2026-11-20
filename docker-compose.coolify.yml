@@ -16,6 +16,8 @@ services:
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_SIP_DOMAIN: ${TWILIO_SIP_DOMAIN:-}
+      TWILIO_SIP_DOMAIN_SID: ${TWILIO_SIP_DOMAIN_SID:-}
+      TWILIO_CREDENTIAL_LIST_SID: ${TWILIO_CREDENTIAL_LIST_SID:-}
       GOSIP_OUTBOUND_CALLER_ID: ${GOSIP_OUTBOUND_CALLER_ID:-}
       GOSIP_PUBLIC_URL: ${GOSIP_PUBLIC_URL:-}
       GOSIP_PBX_URL: ${GOSIP_PBX_URL:-}
@@ -45,6 +47,11 @@ services:
     volumes:
       - gosip-data:/gosip:ro
       - pbx-data:/var/lib/gosip-pbx
+      # Coolify's Traefik directory (read-only). The PBX copies the certificate
+      # for PBX_DOMAIN from acme.json automatically, including renewals. Mount
+      # the directory, not the file, so Coolify never manages acme.json itself.
+      - ${PBX_PROXY_HOST_DIR:-/data/coolify/proxy}:/traefik:ro
+      # Optional manual fallback (fullchain.pem + privkey.pem).
       - ${PBX_CERTS_HOST_PATH:-/data/gosip-pbx/certs}:/certs:ro
     environment:
       GOSIP_URL: http://gosip:8080
@@ -77,5 +84,3 @@ services:
 volumes:
   pbx-data:
   gosip-data:
-    external: true
-    name: ${GOSIP_VOLUME_NAME}

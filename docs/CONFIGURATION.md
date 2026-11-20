@@ -13,6 +13,8 @@ environment variables below supply that account's API credentials.
 | `TWILIO_ACCOUNT_SID` | Twilio `AC…` account identifier |
 | `TWILIO_AUTH_TOKEN` | API/webhook secret; Go backend only |
 | `TWILIO_SIP_DOMAIN` | Dedicated hostname such as `company.sip.twilio.com` |
+| `TWILIO_SIP_DOMAIN_SID` | That SIP Domain's `SD…` identifier |
+| `TWILIO_CREDENTIAL_LIST_SID` | Its dedicated Credential List `CL…` identifier |
 | `GOSIP_PUBLIC_URL` | Public HTTPS origin, e.g. `https://sip.example.com` |
 | `GOSIP_CORS_ORIGINS` | That same trusted HTTPS origin |
 | `GOSIP_PBX_URL` | Private Docker URL `http://pbx:8088` |
@@ -22,13 +24,13 @@ environment variables below supply that account's API credentials.
 | `PBX_DOMAIN` | Same public phone hostname |
 | `PBX_PUBLIC_IP` | Static public IPv4 for SIP/RTP NAT advertisement |
 | `PBX_RTP_PORT_START` / `PBX_RTP_PORT_END` | Public and container RTP range; defaults to `10000`–`10100` |
-| `PBX_CERTS_HOST_PATH` | Host directory containing the PBX certificate and key |
+| `PBX_PROXY_HOST_DIR` | Coolify only: Traefik directory holding `acme.json`; defaults to `/data/coolify/proxy` |
+| `PBX_CERTS_HOST_PATH` | Optional manual certificate directory (`fullchain.pem`, `privkey.pem`) |
 | `GOSIP_PBX_TRUNK_USER` | Private incoming voice trunk username |
 | `GOSIP_PBX_TRUNK_PASSWORD` | Random incoming trunk password |
 | `PBX_TWILIO_USER` | Dedicated bootstrap Twilio SIP credential username |
 | `PBX_TWILIO_PASSWORD` | Bootstrap Twilio SIP credential password |
 | `GOSIP_OUTBOUND_CALLER_ID` | Owned E.164 fallback number; no auto assignment |
-| `GOSIP_VOLUME_NAME` | Existing Go data volume name, Coolify compose only |
 | `TZ` | Operational timezone, e.g. `Asia/Kolkata` |
 
 Generate secrets privately, for example with `openssl rand -hex 24`.
@@ -51,7 +53,9 @@ The backend listens privately on 8080 and persists `/app/data/gosip.db`.
 The PBX listens publicly on the configured TLS port (default TCP 5061) and RTP
 range (default UDP 10000–10100); inside the container it listens on TLS 5061 and
 the configured RTP range. Its private health/credential API listens on 8088.
-Certificates mount from `PBX_CERTS_HOST_PATH` at `/certs`. PBX credentials,
+The PBX copies the certificate for `PBX_DOMAIN` from Coolify's Traefik ACME
+store (mounted read-only at `/traefik`) or, failing that, from
+`PBX_CERTS_HOST_PATH` mounted at `/certs`, into its private volume. PBX credentials,
 offline SMS delivery state and backup markers persist under `/var/lib/gosip-pbx`.
 `PBX_TWILIO_NETWORKS` identifies
 provider signaling networks in the compose file; review against current
@@ -63,8 +67,9 @@ expecting it to manage this deployment's audio.
 
 ## Database metadata and UI policies
 
-`pbx_twilio_domain_sid` and `pbx_twilio_credential_list_sid` are non-secret
-dedicated Twilio resource identifiers; see [Installation](INSTALLATION.md).
+`pbx_twilio_domain_sid` and `pbx_twilio_credential_list_sid` optionally store
+the dedicated Twilio resource identifiers; when present they take precedence
+over `TWILIO_SIP_DOMAIN_SID` / `TWILIO_CREDENTIAL_LIST_SID`.
 `pbx_device_numbers` is a compatibility map maintained by provisioning; do not
 hand-edit a working system's assignments. `sip_accounts` journals account state.
 

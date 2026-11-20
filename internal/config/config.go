@@ -66,19 +66,23 @@ type ZRTPConfig struct {
 // Config holds the runtime configuration for Leadomi SIP
 type Config struct {
 	// Server settings
-	SIPPort          int
-	HTTPPort         int
-	DataDir          string
-	SIPDomain        string // SIP domain for registrations (e.g., "sip.example.com")
-	TwilioSIPDomain  string // Optional Twilio registrar for mobile softphones.
-	OutboundCallerID string
-	PublicURL        string
-	PBXURL           string
-	PBXSecret        string
-	PBXSIPDomain     string
-	PBXSIPPort       int
-	PBXTrunkUser     string
-	PBXTrunkPassword string
+	SIPPort         int
+	HTTPPort        int
+	DataDir         string
+	SIPDomain       string // SIP domain for registrations (e.g., "sip.example.com")
+	TwilioSIPDomain string // Optional Twilio registrar for mobile softphones.
+	// Dedicated Twilio SIP Domain (SD…) and Credential List (CL…) identifiers.
+	// Optional: values stored in the database take precedence.
+	TwilioSIPDomainSID      string
+	TwilioCredentialListSID string
+	OutboundCallerID        string
+	PublicURL               string
+	PBXURL                  string
+	PBXSecret               string
+	PBXSIPDomain            string
+	PBXSIPPort              int
+	PBXTrunkUser            string
+	PBXTrunkPassword        string
 
 	// Twilio credentials (loaded from the process environment or persistent .env).
 	twilioMu         sync.RWMutex
@@ -120,19 +124,21 @@ type Config struct {
 // Load creates a Config from environment variables with defaults
 func Load() *Config {
 	cfg := &Config{
-		SIPPort:          getEnvInt("GOSIP_SIP_PORT", DefaultSIPPort),
-		HTTPPort:         getEnvInt("GOSIP_HTTP_PORT", DefaultHTTPPort),
-		DataDir:          getEnv("GOSIP_DATA_DIR", DefaultDataDir),
-		SIPDomain:        getEnv("GOSIP_SIP_DOMAIN", "localhost"),
-		TwilioSIPDomain:  getEnv("TWILIO_SIP_DOMAIN", ""),
-		OutboundCallerID: getEnv("GOSIP_OUTBOUND_CALLER_ID", ""),
-		PublicURL:        getEnv("GOSIP_PUBLIC_URL", ""),
-		PBXURL:           getEnv("GOSIP_PBX_URL", ""),
-		PBXSecret:        getEnv("GOSIP_PBX_SECRET", ""),
-		PBXSIPDomain:     getEnv("GOSIP_PBX_SIP_DOMAIN", ""),
-		PBXSIPPort:       getEnvInt("GOSIP_PBX_SIP_PORT", 5061),
-		PBXTrunkUser:     getEnv("GOSIP_PBX_TRUNK_USER", ""),
-		PBXTrunkPassword: getEnv("GOSIP_PBX_TRUNK_PASSWORD", ""),
+		SIPPort:                 getEnvInt("GOSIP_SIP_PORT", DefaultSIPPort),
+		HTTPPort:                getEnvInt("GOSIP_HTTP_PORT", DefaultHTTPPort),
+		DataDir:                 getEnv("GOSIP_DATA_DIR", DefaultDataDir),
+		SIPDomain:               getEnv("GOSIP_SIP_DOMAIN", "localhost"),
+		TwilioSIPDomain:         getEnv("TWILIO_SIP_DOMAIN", ""),
+		TwilioSIPDomainSID:      getEnv("TWILIO_SIP_DOMAIN_SID", ""),
+		TwilioCredentialListSID: getEnv("TWILIO_CREDENTIAL_LIST_SID", ""),
+		OutboundCallerID:        getEnv("GOSIP_OUTBOUND_CALLER_ID", ""),
+		PublicURL:               getEnv("GOSIP_PUBLIC_URL", ""),
+		PBXURL:                  getEnv("GOSIP_PBX_URL", ""),
+		PBXSecret:               getEnv("GOSIP_PBX_SECRET", ""),
+		PBXSIPDomain:            getEnv("GOSIP_PBX_SIP_DOMAIN", ""),
+		PBXSIPPort:              getEnvInt("GOSIP_PBX_SIP_PORT", 5061),
+		PBXTrunkUser:            getEnv("GOSIP_PBX_TRUNK_USER", ""),
+		PBXTrunkPassword:        getEnv("GOSIP_PBX_TRUNK_PASSWORD", ""),
 
 		// These are typically loaded from database after initial setup
 		TwilioAccountSID: getEnv("TWILIO_ACCOUNT_SID", ""),

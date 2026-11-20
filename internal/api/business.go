@@ -213,12 +213,19 @@ func (h *BusinessHandler) List(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, map[string]interface{}{"data": result, "server": phoneServer(h.deps.Config.PBXSIPDomain), "proxy": phoneProxyURI(h.deps.Config.PBXSIPPort, h.deps.Config.PBXSIPDomain), "sip_port": phoneSIPPort(h.deps.Config.PBXSIPPort)})
 }
 func (h *BusinessHandler) credentialList(ctx context.Context) (string, error) {
+	// Database metadata wins; runtime variables configure a fresh install.
 	domainSID, err := h.deps.DB.Config.Get(ctx, "pbx_twilio_domain_sid")
 	if err != nil || !resourceSID.MatchString(domainSID) {
+		domainSID = h.deps.Config.TwilioSIPDomainSID
+	}
+	if !resourceSID.MatchString(domainSID) {
 		return "", fmt.Errorf("Twilio SIP domain must be configured by the server administrator")
 	}
 	listSID, err := h.deps.DB.Config.Get(ctx, "pbx_twilio_credential_list_sid")
 	if err != nil || !resourceSID.MatchString(listSID) {
+		listSID = h.deps.Config.TwilioCredentialListSID
+	}
+	if !resourceSID.MatchString(listSID) {
 		return "", fmt.Errorf("Twilio credential list must be configured by the server administrator")
 	}
 	var domain struct {

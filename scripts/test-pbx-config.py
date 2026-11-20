@@ -3,6 +3,8 @@
 import importlib.util
 import os
 from pathlib import Path
+import base64
+import json
 import tempfile
 import unittest
 import sqlite3
@@ -80,6 +82,54 @@ class CredentialRendering(unittest.TestCase):
         with patch.dict(os.environ, {"PBX_TWILIO_USER": "provider@host"}):
             with self.assertRaises(ValueError):
                 bridge.render([])
+
+
+class CertificateSync(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        for name, value in (("STATE", self.root / "state"), ("DOMAIN", "sip.example.com"),
+                            ("ACME_FILE", self.root / "acme.json"),
+                            ("MANUAL_CERTS", self.root / "manual")):
+            patcher = patch.object(bridge, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def write_acme(self, main, chain=b"CHAIN", key=b"KEY", sans=None):
+        storage = {"letsencrypt": {"Account": {}, "Certificates": [{
+            "domain": {"main": main, "sans": sans},
+            "certificate": base64.b64encode(chain).decode(),
+            "key": base64.b64encode(key).decode(), "Store": "default"}]}}
+        (self.root / "acme.json").write_text(json.dumps(storage))
+
+    def test_proxy_certificate_is_copied_and_refreshed(self):
+        self.write_acme("sip.example.com")
+        self.assertTrue(bridge.sync_certificate())
+        target = self.root / "state" / "certs"
+        self.assertEqual((target / "fullchain.pem").read_bytes(), b"CHAIN")
+        self.assertEqual((target / "privkey.pem").read_bytes(), b"KEY")
+        self.write_acme("sip.example.com", b"RENEWED", b"KEY2")
+        bridge.sync_certificate()
+        self.assertEqual((target / "fullchain.pem").read_bytes(), b"RENEWED")
+
+    def test_alternative_name_matches_and_other_domains_are_ignored(self):
+        self.write_acme("other.example.com")
+        self.assertFalse(bridge.sync_certificate())
+        self.write_acme("www.example.com", sans=["sip.example.com"])
+        self.assertTrue(bridge.sync_certificate())
+
+    def test_manual_certificate_is_fallback(self):
+        manual = self.root / "manual"
+        manual.mkdir()
+        (manual / "fullchain.pem").write_bytes(b"MANUAL")
+        (manual / "privkey.pem").write_bytes(b"MANUALKEY")
+        self.assertTrue(bridge.sync_certificate())
+        self.assertEqual((self.root / "state" / "certs" / "fullchain.pem").read_bytes(), b"MANUAL")
+
+    def test_unreadable_store_does_not_crash(self):
+        (self.root / "acme.json").write_text("not json")
+        self.assertFalse(bridge.sync_certificate())
 
 
 if __name__ == "__main__":

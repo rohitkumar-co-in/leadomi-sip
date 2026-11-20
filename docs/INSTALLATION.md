@@ -14,8 +14,7 @@ Builds require additional headroom. Hostname examples below use
 
 Configure its DNS A record to the VPS. Open HTTPS TCP 443, HTTP TCP 80 when
 needed for certificate renewal, SIP TLS TCP 5061, and RTP UDP 10000–10100 by
-default. For another Leadomi instance on the same VPS, allocate it unused SIP
-and RTP ports as described in [Coolify deployment](COOLIFY_DEPLOYMENT.md).
+default. Run one Leadomi SIP installation per VPS.
 Restrict SSH to your management network. Do not expose the Go backend's 5060,
 PBX HTTP 8088, AMI, database, or unauthenticated management ports publicly.
 
@@ -32,7 +31,8 @@ PBX HTTP 8088, AMI, database, or unauthenticated management ports publicly.
    `https://sip.example.com/api/webhooks/voice/outgoing`, method POST. This
    domain must be dedicated to this deployment: do not repoint a domain used
    by an unrelated working system.
-5. Record the Domain SID (`SD…`) and Credential List SID (`CL…`).
+5. Record the Domain SID (`SD…`) and Credential List SID (`CL…`) and set them
+   as `TWILIO_SIP_DOMAIN_SID` and `TWILIO_CREDENTIAL_LIST_SID`.
 
 Do **not** change any phone number's callbacks at this stage. Number inventory
 is read-only; assigning a number later requires review and confirmation.
@@ -45,7 +45,9 @@ Clone this repository and configure the variables in
 For direct Docker Compose, copy `.env.example` to `.env`, populate it, and
 restrict it to mode 0600. Never commit that file.
 
-Provide a publicly trusted certificate for the SIP hostname in the directory
+With Coolify, the PBX reuses the proxy's certificate automatically; see
+[Coolify deployment](COOLIFY_DEPLOYMENT.md). For direct Compose, provide a
+publicly trusted certificate for the SIP hostname in the directory
 configured by `PBX_CERTS_HOST_PATH` (default `/data/gosip-pbx/certs`), named
 `fullchain.pem` and `privkey.pem`. The root-owned private
 key should be mode 0600. The PBX mounts this directory read-only. Your HTTPS
@@ -82,21 +84,6 @@ The wizard only creates the web administrator. It does not assign numbers or
 create phone users. Twilio is supplied through the server environment.
 There is no default administrator password. Setup closes after completion.
 Use **Administrators** to create additional trusted web administrators.
-
-## Store the dedicated SIP resource identifiers
-
-After the database exists, store the non-secret SIDs in its config table.
-Substitute the two validated Twilio SIDs. With direct Compose:
-
-```sh
-docker compose --project-name leadomi-sip -f docker-compose.production.yml exec -T gosip  sqlite3 /app/data/gosip.db "INSERT INTO config(key,value) VALUES('pbx_twilio_domain_sid','SD_REPLACE_ME'),('pbx_twilio_credential_list_sid','CL_REPLACE_ME') ON CONFLICT(key) DO UPDATE SET value=excluded.value;"
-```
-
-With Coolify, run the same `sqlite3` command in the Go backend's container
-terminal. Actual SIDs have two letters plus 32 hexadecimal characters. This
-command stores identifiers only; API Auth Tokens and phone passwords do not
-belong in SQLite. Resource mappings and secure domain identity are validated
-before provisioning.
 
 ## First phone and validation
 

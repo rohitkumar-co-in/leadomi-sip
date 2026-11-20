@@ -37,6 +37,12 @@ CONF = Path(os.getenv("PBX_CONFIG_DIR", "/etc/asterisk"))
 DOMAIN = os.getenv("PBX_DOMAIN", "sip.example.com")
 SECRET = os.getenv("GOSIP_PBX_SECRET", "")
 GOSIP = os.getenv("GOSIP_URL", "http://gosip:8080").rstrip("/")
+# The PBX serves TLS from a private copy of the certificate. It is refreshed
+# from the reverse proxy's ACME store (Coolify/Traefik) when that is mounted,
+# otherwise from manually installed files in /certs.
+ACME_FILE = Path(os.getenv("PBX_ACME_FILE", "/traefik/acme.json"))
+MANUAL_CERTS = Path(os.getenv("PBX_MANUAL_CERT_DIR", "/certs"))
+CERT_WAIT_SECONDS = int(os.getenv("PBX_CERT_WAIT_SECONDS", "900"))
 AMI_SECRET = secrets.token_hex(32)
 PROCESS = None
 STOP = threading.Event()
@@ -66,9 +72,53 @@ def source():
 def atomic(path, content):
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".new")
-    temporary.write_text(content, encoding="utf-8")
+    if isinstance(content, bytes):
+        temporary.write_bytes(content)
+    else:
+        temporary.write_text(content, encoding="utf-8")
     temporary.chmod(0o600)
     temporary.replace(path)
+
+
+def cert_dir():
+    return STATE / "certs"
+
+
+def acme_certificate(path=None):
+    """Return (fullchain, key) PEM bytes for DOMAIN from a Traefik ACME store."""
+    path = path or ACME_FILE
+    if not path.is_file():
+        return None
+    storage = json.loads(path.read_text(encoding="utf-8") or "{}")
+    for resolver in storage.values() if isinstance(storage, dict) else ():
+        if not isinstance(resolver, dict):
+            continue
+        for certificate in resolver.get("Certificates") or []:
+            names = certificate.get("domain") or {}
+            if DOMAIN == names.get("main") or DOMAIN in (names.get("sans") or []):
+                return (base64.b64decode(certificate["certificate"], validate=True),
+                        base64.b64decode(certificate["key"], validate=True))
+    return None
+
+
+def sync_certificate():
+    """Refresh the PBX's private certificate copy. Returns True when one exists."""
+    found = None
+    try:
+        found = acme_certificate()
+    except (OSError, ValueError, KeyError, TypeError):
+        LOG.warning("Proxy certificate store could not be read")
+    if found is None:
+        chain, key = MANUAL_CERTS / "fullchain.pem", MANUAL_CERTS / "privkey.pem"
+        if chain.is_file() and key.is_file():
+            found = (chain.read_bytes(), key.read_bytes())
+    target = cert_dir()
+    if found and found[0] and found[1]:
+        for name, data in (("privkey.pem", found[1]), ("fullchain.pem", found[0])):
+            path = target / name
+            if not path.exists() or path.read_bytes() != data:
+                atomic(path, data)
+    return (target / "fullchain.pem").is_file() and (target / "privkey.pem").is_file()
 
 
 def cli(command):
@@ -114,8 +164,8 @@ max_forwards=70
 type=transport
 protocol=tls
 bind=0.0.0.0:5061
-cert_file=/certs/fullchain.pem
-priv_key_file=/certs/privkey.pem
+cert_file={cert_dir()}/fullchain.pem
+priv_key_file={cert_dir()}/privkey.pem
 ca_list_file=/etc/ssl/certs/ca-certificates.crt
 method=tlsv1_2
 verify_server=yes
@@ -548,6 +598,14 @@ def main():
     atomic(CONF / "rtp.conf", f"[general]\nrtpstart={rtp_start}\nrtpend={rtp_end}\nstrictrtp=yes\n")
     atomic(CONF / "http.conf", "[general]\nenabled=no\n")
     atomic(CONF / "manager.conf", "[general]\nenabled=yes\nbindaddr=127.0.0.1\nport=5038\n[gosip-bridge]\nsecret=" + AMI_SECRET + "\ndeny=0.0.0.0/0.0.0.0\npermit=127.0.0.1/255.255.255.255\nread=system,message,reporting\nwrite=system,message,reporting\n")
+    waited = 0
+    while not sync_certificate():
+        if waited >= CERT_WAIT_SECONDS:
+            raise SystemExit("No TLS certificate for " + DOMAIN + "; check PBX_DOMAIN and the proxy domain")
+        if waited % 60 == 0:
+            LOG.info("Waiting for a TLS certificate for %s", DOMAIN)
+        time.sleep(10)
+        waited += 10
     configure()
     queue = sqlite3.connect(STATE / "delivery.db")
     queue.executescript("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT); CREATE TABLE IF NOT EXISTS deliveries(message_id INTEGER,username TEXT,sender TEXT,body TEXT,delivered INTEGER DEFAULT 0,PRIMARY KEY(message_id,username)); CREATE TABLE IF NOT EXISTS outbound(message_id INTEGER PRIMARY KEY,username TEXT,destination TEXT,notified INTEGER DEFAULT 0);")
@@ -574,7 +632,8 @@ def main():
                 if time.time() - last_config >= 10:
                     configure()
                     last_config = time.time()
-                    cert = hashlib.sha256(Path("/certs/fullchain.pem").read_bytes()).hexdigest()
+                    sync_certificate()
+                    cert = hashlib.sha256((cert_dir() / "fullchain.pem").read_bytes()).hexdigest()
                     if last_cert and cert != last_cert:
                         reload_sip()
                     last_cert = cert

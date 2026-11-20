@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -185,5 +186,14 @@ func TestSplitString(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLoadTwilioSIPResourceIdentifiers(t *testing.T) {
+	t.Setenv("TWILIO_SIP_DOMAIN_SID", "SD"+strings.Repeat("a", 32))
+	t.Setenv("TWILIO_CREDENTIAL_LIST_SID", "CL"+strings.Repeat("b", 32))
+	cfg := Load()
+	if cfg.TwilioSIPDomainSID != "SD"+strings.Repeat("a", 32) || cfg.TwilioCredentialListSID != "CL"+strings.Repeat("b", 32) {
+		t.Fatalf("Twilio SIP resource identifiers were not loaded")
 	}
 }
