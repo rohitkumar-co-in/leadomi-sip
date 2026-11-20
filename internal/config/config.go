@@ -75,14 +75,17 @@ type Config struct {
 	// Optional: values stored in the database take precedence.
 	TwilioSIPDomainSID      string
 	TwilioCredentialListSID string
-	OutboundCallerID        string
-	PublicURL               string
-	PBXURL                  string
-	PBXSecret               string
-	PBXSIPDomain            string
-	PBXSIPPort              int
-	PBXTrunkUser            string
-	PBXTrunkPassword        string
+	// TwilioBootstrapUser is the server's own Twilio SIP credential username
+	// (PBX_TWILIO_USER). A phone user may share it.
+	TwilioBootstrapUser string
+	OutboundCallerID    string
+	PublicURL           string
+	PBXURL              string
+	PBXSecret           string
+	PBXSIPDomain        string
+	PBXSIPPort          int
+	PBXTrunkUser        string
+	PBXTrunkPassword    string
 
 	// Twilio credentials (loaded from the process environment or persistent .env).
 	twilioMu         sync.RWMutex
@@ -131,6 +134,7 @@ func Load() *Config {
 		TwilioSIPDomain:         getEnv("TWILIO_SIP_DOMAIN", ""),
 		TwilioSIPDomainSID:      getEnv("TWILIO_SIP_DOMAIN_SID", ""),
 		TwilioCredentialListSID: getEnv("TWILIO_CREDENTIAL_LIST_SID", ""),
+		TwilioBootstrapUser:     getEnv("PBX_TWILIO_USER", ""),
 		OutboundCallerID:        getEnv("GOSIP_OUTBOUND_CALLER_ID", ""),
 		PublicURL:               getEnv("GOSIP_PUBLIC_URL", ""),
 		PBXURL:                  getEnv("GOSIP_PBX_URL", ""),

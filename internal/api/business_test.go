@@ -294,3 +294,98 @@ func TestBusinessPolicyAndSessionRevocation(t *testing.T) {
 		t.Fatal("Revoked cached session was accepted")
 	}
 }
+
+// A phone user may share the server's bootstrap Twilio credential username.
+// Provisioning adopts and rotates that credential; disabling never deletes it.
+func TestBusinessBootstrapUsernameProvisioning(t *testing.T) {
+	setup := setupTestAPI(t)
+	ctx := context.Background()
+	suffix := strings.Repeat("b", 32)
+	sid, list, domain, pn, cred := "AC"+suffix, "CL"+suffix, "SD"+suffix, "PN"+suffix, "CR"+suffix
+	cfg := &config.Config{TwilioAccountSID: sid, TwilioAuthToken: "secret-token", TwilioSIPDomain: "test.sip.twilio.com",
+		TwilioSIPDomainSID: domain, TwilioCredentialListSID: list, TwilioBootstrapUser: "leadomi",
+		PublicURL: "https://sip.example.test", PBXSIPDomain: "sip.example.test", PBXURL: "http://pbx.test", PBXSecret: "pbx-secret"}
+	h := newBusinessHandler(&Dependencies{DB: setup.DB, Config: cfg})
+	var rotated, pbxPassword string
+	deleted, created := false, false
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		switch {
+		case strings.HasSuffix(path, "/credentials"):
+			var v map[string]string
+			json.NewDecoder(r.Body).Decode(&v)
+			if v["username"] != "leadomi" {
+				t.Error("PBX credential saved for wrong user")
+			}
+			pbxPassword = v["password"]
+			fmt.Fprint(w, `{"saved":true}`)
+		case strings.HasSuffix(path, "/registrations"):
+			fmt.Fprint(w, `[]`)
+		case strings.HasSuffix(path, "/IncomingPhoneNumbers.json"):
+			fmt.Fprintf(w, `{"incoming_phone_numbers":[{"sid":%q,"phone_number":"+447782226484","capabilities":{"voice":true,"sms":true}}]}`, pn)
+		case strings.HasSuffix(path, "/Domains/"+domain+".json"):
+			fmt.Fprint(w, `{"domain_name":"test.sip.twilio.com","secure":true}`)
+		case strings.HasSuffix(path, "/CredentialListMappings.json"):
+			fmt.Fprintf(w, `{"contents":[{"sid":%q}]}`, list)
+		case strings.HasSuffix(path, "/Credentials.json") && r.Method == "GET":
+			fmt.Fprintf(w, `{"credentials":[{"sid":%q,"username":"leadomi"}]}`, cred)
+		case strings.HasSuffix(path, "/Credentials/"+cred+".json") && r.Method == "POST":
+			r.ParseForm()
+			rotated = r.Form.Get("Password")
+			fmt.Fprintf(w, `{"sid":%q}`, cred)
+		case strings.HasSuffix(path, "/Credentials.json") && r.Method == "POST":
+			created = true
+			fmt.Fprintf(w, `{"sid":%q}`, cred)
+		case strings.Contains(path, "/Credentials/") && r.Method == "DELETE":
+			deleted = true
+			w.WriteHeader(204)
+		case strings.HasSuffix(path, "/Services"):
+			fmt.Fprint(w, `{"services":[],"meta":{}}`)
+		case strings.HasSuffix(path, "/IncomingPhoneNumbers/"+pn+".json"):
+			fmt.Fprint(w, `{}`)
+		default:
+			t.Errorf("Unexpected fake request: %s %s", r.Method, path)
+			w.WriteHeader(404)
+		}
+	}))
+	defer fake.Close()
+	fakeURL, _ := url.Parse(fake.URL)
+	h.client = &http.Client{Transport: businessTransport(func(r *http.Request) (*http.Response, error) {
+		copy := r.Clone(r.Context())
+		u := *r.URL
+		u.Scheme, u.Host = fakeURL.Scheme, fakeURL.Host
+		copy.URL = &u
+		return http.DefaultTransport.RoundTrip(copy)
+	})}
+	invoke := func(method, path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req = req.WithContext(context.WithValue(req.Context(), contextKeyUser, &models.User{ID: 1, Role: "admin"}))
+		rec := httptest.NewRecorder()
+		router := chi.NewRouter()
+		router.Post("/accounts", h.Provision)
+		router.Post("/accounts/{id}/disable", h.Disable)
+		router.ServeHTTP(rec, req)
+		return rec
+	}
+	numbers, err := h.numbers(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	review, err := h.reviewNumber(ctx, numbers[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := invoke("POST", "/accounts", fmt.Sprintf(`{"name":"Leadomi","username":"leadomi","number":"+447782226484","number_review":%q}`, review.Fingerprint))
+	assertStatus(t, result, 200)
+	if created || rotated == "" || pbxPassword != rotated {
+		t.Fatal("Bootstrap credential was not adopted and rotated into the PBX")
+	}
+	var response struct {
+		ID int64 `json:"id"`
+	}
+	json.Unmarshal(result.Body.Bytes(), &response)
+	assertStatus(t, invoke("POST", fmt.Sprintf("/accounts/%d/disable", response.ID), ""), 200)
+	if deleted {
+		t.Fatal("Disabling the phone user deleted the server's bootstrap credential")
+	}
+}

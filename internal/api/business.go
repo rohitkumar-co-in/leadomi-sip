@@ -259,6 +259,30 @@ func (h *BusinessHandler) credentialList(ctx context.Context) (string, error) {
 	}
 	return listSID, nil
 }
+
+// isBootstrapUser reports whether username is the server's own Twilio SIP
+// credential (PBX_TWILIO_USER), which the PBX also uses for outbound calls.
+func (h *BusinessHandler) isBootstrapUser(username string) bool {
+	return h.deps.Config.TwilioBootstrapUser != "" && username == h.deps.Config.TwilioBootstrapUser
+}
+
+// revokeCredential removes a SIP user's dedicated Twilio credential. The
+// bootstrap credential is kept: the PBX trunk depends on it and phones never
+// receive its password, so disabling the phone user locally is sufficient.
+func (h *BusinessHandler) revokeCredential(ctx context.Context, username string) error {
+	if h.isBootstrapUser(username) {
+		return nil
+	}
+	listSID, err := h.credentialList(ctx)
+	if err != nil {
+		return err
+	}
+	credential, err := h.findCredential(ctx, listSID, username)
+	if err != nil || credential == "" {
+		return err
+	}
+	return h.twilio(ctx, "DELETE", "/SIP/CredentialLists/"+listSID+"/Credentials/"+credential+".json", nil, nil)
+}
 func (h *BusinessHandler) findCredential(ctx context.Context, listSID, user string) (string, error) {
 	var list struct {
 		Items []struct {
@@ -466,7 +490,9 @@ func (h *BusinessHandler) Provision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Never take over an unrelated username already in the Twilio credential list.
-	if device == nil && credentialSID != "" {
+	// The server's own bootstrap credential may also be the phone user's: its
+	// password is rotated below and immediately persisted to the PBX state.
+	if device == nil && credentialSID != "" && !h.isBootstrapUser(req.Username) {
 		WriteError(w, 409, "USERNAME_EXISTS", "That username already exists in Twilio. Choose a different username", nil)
 		return
 	}
@@ -709,15 +735,7 @@ func (h *BusinessHandler) Disable(w http.ResponseWriter, r *http.Request) {
 		WriteInternalError(w)
 		return
 	}
-	listSID, err := h.credentialList(r.Context())
-	if err == nil {
-		var credential string
-		credential, err = h.findCredential(r.Context(), listSID, device.Username)
-		if err == nil && credential != "" {
-			err = h.twilio(r.Context(), "DELETE", "/SIP/CredentialLists/"+listSID+"/Credentials/"+credential+".json", nil, nil)
-		}
-	}
-	if err != nil {
+	if err = h.revokeCredential(r.Context(), device.Username); err != nil {
 		h.audit(r.Context(), getUserIDFromContext(r.Context()), "disable", device.Username, "local_only")
 		WriteError(w, 502, "REVOCATION_PENDING", "SIP user is disabled locally. Twilio credential revocation failed; retry Disable", nil)
 		return

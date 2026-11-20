@@ -149,15 +149,7 @@ func (h *BusinessHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 409, "DISABLE_REQUIRED", "Disable this SIP user before deleting it. This prevents leaving an active phone or provider credential", nil)
 		return
 	}
-	list, err := h.credentialList(ctx)
-	if err == nil {
-		var credential string
-		credential, err = h.findCredential(ctx, list, device.Username)
-		if err == nil && credential != "" {
-			err = h.twilio(ctx, "DELETE", "/SIP/CredentialLists/"+list+"/Credentials/"+credential+".json", nil, nil)
-		}
-	}
-	if err != nil {
+	if err = h.revokeCredential(ctx, device.Username); err != nil {
 		WriteError(w, 502, "REVOCATION_PENDING", "Deletion paused because Twilio credential revocation could not be verified. Retry when Twilio is available", nil)
 		return
 	}
