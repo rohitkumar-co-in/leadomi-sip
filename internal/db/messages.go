@@ -38,11 +38,13 @@ func NewMessageRepository(db *sql.DB) *MessageRepository {
 	return &MessageRepository{db: db}
 }
 
-// Create inserts a new message
+// Create inserts a new message. A message without a provider SID stores NULL:
+// message_sid is UNIQUE, and an empty string would block every later message
+// that is also still waiting for (or never gets) a SID.
 func (r *MessageRepository) Create(ctx context.Context, msg *models.Message) error {
 	result, err := r.db.ExecContext(ctx, `
 		INSERT INTO messages (message_sid, direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, msg.MessageSID, msg.Direction, msg.FromNumber, msg.ToNumber, msg.DIDID, msg.Body, msg.MediaURLs, msg.Status, time.Now(), msg.IsRead)
 	if err != nil {
 		return err
@@ -63,7 +65,7 @@ func (r *MessageRepository) GetByID(ctx context.Context, id int64) (*models.Mess
 	var messageSID, body, status sql.NullString
 	var mediaURLs []byte
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, message_sid, direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
+		SELECT id, COALESCE(message_sid, ''), direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
 		FROM messages WHERE id = ?
 	`, id).Scan(&msg.ID, &messageSID, &msg.Direction, &msg.FromNumber, &msg.ToNumber, &didID, &body, &mediaURLs, &status, &msg.CreatedAt, &msg.IsRead)
 	if err == sql.ErrNoRows {
@@ -83,7 +85,7 @@ func (r *MessageRepository) GetByMessageSID(ctx context.Context, msgSID string) 
 	var messageSID, body, status sql.NullString
 	var mediaURLs []byte
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, message_sid, direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
+		SELECT id, COALESCE(message_sid, ''), direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
 		FROM messages WHERE message_sid = ?
 	`, msgSID).Scan(&msg.ID, &messageSID, &msg.Direction, &msg.FromNumber, &msg.ToNumber, &didID, &body, &mediaURLs, &status, &msg.CreatedAt, &msg.IsRead)
 	if err == sql.ErrNoRows {
@@ -99,7 +101,7 @@ func (r *MessageRepository) GetByMessageSID(ctx context.Context, msgSID string) 
 // Update updates an existing message
 func (r *MessageRepository) Update(ctx context.Context, msg *models.Message) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE messages SET message_sid = ?, direction = ?, from_number = ?, to_number = ?,
+		UPDATE messages SET message_sid = NULLIF(?, ''), direction = ?, from_number = ?, to_number = ?,
 		did_id = ?, body = ?, media_urls = ?, status = ?, is_read = ?
 		WHERE id = ?
 	`, msg.MessageSID, msg.Direction, msg.FromNumber, msg.ToNumber, msg.DIDID, msg.Body, msg.MediaURLs, msg.Status, msg.IsRead, msg.ID)
@@ -127,7 +129,7 @@ func (r *MessageRepository) MarkAsRead(ctx context.Context, id int64) error {
 // List returns messages with pagination
 func (r *MessageRepository) List(ctx context.Context, limit, offset int) ([]*models.Message, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, message_sid, direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
+		SELECT id, COALESCE(message_sid, ''), direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
 		FROM messages ORDER BY created_at DESC LIMIT ? OFFSET ?
 	`, limit, offset)
 	if err != nil {
@@ -153,7 +155,7 @@ func (r *MessageRepository) List(ctx context.Context, limit, offset int) ([]*mod
 // ListByDID returns messages for a specific DID
 func (r *MessageRepository) ListByDID(ctx context.Context, didID int64, limit, offset int) ([]*models.Message, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, message_sid, direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
+		SELECT id, COALESCE(message_sid, ''), direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
 		FROM messages WHERE did_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?
 	`, didID, limit, offset)
 	if err != nil {
@@ -191,7 +193,7 @@ func (r *MessageRepository) ListByDID(ctx context.Context, didID int64, limit, o
 // GetConversation returns messages between a DID and a specific phone number (threaded view)
 func (r *MessageRepository) GetConversation(ctx context.Context, didID int64, phoneNumber string, limit, offset int) ([]*models.Message, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, message_sid, direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
+		SELECT id, COALESCE(message_sid, ''), direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
 		FROM messages
 		WHERE (? = 0 OR did_id = ?)
 		AND CASE WHEN direction = 'inbound' THEN from_number ELSE to_number END = ?
@@ -232,7 +234,7 @@ func (r *MessageRepository) GetConversation(ctx context.Context, didID int64, ph
 // ListUnread returns unread messages
 func (r *MessageRepository) ListUnread(ctx context.Context) ([]*models.Message, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, message_sid, direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
+		SELECT id, COALESCE(message_sid, ''), direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
 		FROM messages WHERE is_read = 0 ORDER BY created_at DESC
 	`)
 	if err != nil {
@@ -293,7 +295,7 @@ func (r *MessageRepository) CountByRemoteNumber(ctx context.Context, remoteNumbe
 // ListByDirection returns messages with a specific direction with pagination
 func (r *MessageRepository) ListByDirection(ctx context.Context, direction string, limit, offset int) ([]*models.Message, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, message_sid, direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
+		SELECT id, COALESCE(message_sid, ''), direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
 		FROM messages WHERE direction = ? ORDER BY created_at DESC LIMIT ? OFFSET ?
 	`, direction, limit, offset)
 	if err != nil {
@@ -319,7 +321,7 @@ func (r *MessageRepository) ListByDirection(ctx context.Context, direction strin
 // ListByRemoteNumber returns messages with a specific remote number with pagination
 func (r *MessageRepository) ListByRemoteNumber(ctx context.Context, remoteNumber string, limit, offset int) ([]*models.Message, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, message_sid, direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
+		SELECT id, COALESCE(message_sid, ''), direction, from_number, to_number, did_id, body, media_urls, status, created_at, is_read
 		FROM messages WHERE from_number = ? OR to_number = ? ORDER BY created_at DESC LIMIT ? OFFSET ?
 	`, remoteNumber, remoteNumber, limit, offset)
 	if err != nil {

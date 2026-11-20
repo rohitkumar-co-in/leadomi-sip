@@ -60,3 +60,29 @@ func TestSimulatorEndToEnd(t *testing.T) {
 		t.Fatal("Simulated SMS was not stored for Messages and the phone")
 	}
 }
+
+// Messages that never receive a provider SID (simulated, or rejected by
+// Twilio) must not block later messages through the UNIQUE message_sid index.
+func TestMessagesWithoutProviderSIDDoNotCollide(t *testing.T) {
+	setup, deps, _ := setupAutomation(t)
+	h := NewAutomationHandler(deps)
+	for i, to := range []string{"+447700900201", "+447700900202", "+447700900203"} {
+		req := httptest.NewRequest("POST", "/api/automation/sms", strings.NewReader(`{"to":"`+to+`","body":"test"}`))
+		req.Header.Set(automationKeyHeader, testAutomationKey)
+		rec := httptest.NewRecorder()
+		h.SendSMS(rec, req)
+		if rec.Code != 202 {
+			t.Fatalf("message %d failed with %d: %s", i+1, rec.Code, rec.Body.String())
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+	var count int
+	setup.DB.Conn().QueryRow("SELECT COUNT(*) FROM messages WHERE message_sid IS NULL AND status='simulated'").Scan(&count)
+	if count != 3 {
+		t.Fatalf("expected 3 simulated messages without SID, got %d", count)
+	}
+	msgs, err := setup.DB.Messages.List(context.Background(), 10, 0)
+	if err != nil || len(msgs) != 3 {
+		t.Fatalf("messages without SID could not be read back: %v", err)
+	}
+}
