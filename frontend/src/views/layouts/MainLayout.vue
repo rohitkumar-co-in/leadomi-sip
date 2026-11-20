@@ -5,6 +5,7 @@ import {
   Phone,
   MessageSquare,
   FlaskConical,
+  Smartphone,
   Voicemail,
   Settings,
   Users,
@@ -36,6 +37,7 @@ onBeforeUnmount(()=>{window.removeEventListener('resize',resize);if(sidebarOpen.
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Phone Setup', href: '/phone-setup', icon: Smartphone },
   { name: 'Phone Numbers', href: '/dids', icon: Phone },
   { name: 'Activity Log', href: '/activity', icon: LayoutDashboard },
   { name: 'Messages', href: '/messages', icon: MessageSquare },
