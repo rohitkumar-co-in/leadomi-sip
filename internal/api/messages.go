@@ -225,6 +225,10 @@ func (h *MessageHandler) Send(w http.ResponseWriter, r *http.Request) {
 	if actor != "" {
 		h.deps.DB.Conn().ExecContext(r.Context(), "UPDATE activity_actors SET actor=? WHERE kind='sms' AND record_id=?", actor, message.ID)
 	}
+	// A person replying from the phone or console takes over from the AI.
+	if actor != "" && actor != automationActor {
+		pauseAutomationAI(r.Context(), h.deps, req.ToNumber)
+	}
 
 	// Snapshot the accepted response before the sender updates its message.
 	// Provider completion is reported through subsequent history/status reads.

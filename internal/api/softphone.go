@@ -111,7 +111,13 @@ func (h *WebhookHandler) VoiceDialComplete(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	switch r.FormValue("DialCallStatus") {
+	status := r.FormValue("DialCallStatus")
+	switch status {
+	case "busy", "no-answer", "failed", "canceled":
+		// The phone did not answer: let n8n text the caller back.
+		notifyMissedCall(r.Context(), h.deps, r.FormValue("From"), r.FormValue("To"), r.FormValue("CallSid"), status, false)
+	}
+	switch status {
 	case "busy", "no-answer", "failed":
 		id, err := strconv.ParseInt(r.URL.Query().Get("DidId"), 10, 64)
 		if err == nil {

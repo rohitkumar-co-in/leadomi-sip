@@ -39,10 +39,7 @@ func (h *BusinessHandler) envPhoneUserConfigured() bool {
 
 // phoneNumber returns the number chosen in the console, or the environment default.
 func (h *BusinessHandler) phoneNumber(ctx context.Context) string {
-	if chosen, err := h.deps.DB.Config.Get(ctx, phoneNumberKey); err == nil && e164Destination.MatchString(chosen) {
-		return chosen
-	}
-	return h.deps.Config.OutboundCallerID
+	return phoneNumberFor(ctx, h.deps)
 }
 
 // SelectPhoneNumber assigns an owned Twilio number to the phone after the

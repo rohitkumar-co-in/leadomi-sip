@@ -80,16 +80,21 @@ type Config struct {
 	TwilioBootstrapUser string
 	// PhonePassword (GOSIP_PHONE_PASSWORD) and PhoneName define the single
 	// phone user, together with TwilioBootstrapUser and OutboundCallerID.
-	PhonePassword    string
-	PhoneName        string
-	OutboundCallerID string
-	PublicURL        string
-	PBXURL           string
-	PBXSecret        string
-	PBXSIPDomain     string
-	PBXSIPPort       int
-	PBXTrunkUser     string
-	PBXTrunkPassword string
+	PhonePassword string
+	PhoneName     string
+	// AutomationKey (GOSIP_AUTOMATION_KEY) authenticates n8n in both
+	// directions; the URLs receive missed-call and incoming-SMS events.
+	AutomationKey           string
+	AutomationMissedCallURL string
+	AutomationSMSURL        string
+	OutboundCallerID        string
+	PublicURL               string
+	PBXURL                  string
+	PBXSecret               string
+	PBXSIPDomain            string
+	PBXSIPPort              int
+	PBXTrunkUser            string
+	PBXTrunkPassword        string
 
 	// Twilio credentials (loaded from the process environment or persistent .env).
 	twilioMu         sync.RWMutex
@@ -141,6 +146,9 @@ func Load() *Config {
 		TwilioBootstrapUser:     getEnv("PBX_TWILIO_USER", ""),
 		PhonePassword:           getEnv("GOSIP_PHONE_PASSWORD", ""),
 		PhoneName:               getEnv("GOSIP_PHONE_NAME", ""),
+		AutomationKey:           getEnv("GOSIP_AUTOMATION_KEY", ""),
+		AutomationMissedCallURL: getEnv("GOSIP_N8N_MISSED_CALL_URL", ""),
+		AutomationSMSURL:        getEnv("GOSIP_N8N_SMS_URL", ""),
 		OutboundCallerID:        getEnv("GOSIP_OUTBOUND_CALLER_ID", ""),
 		PublicURL:               getEnv("GOSIP_PUBLIC_URL", ""),
 		PBXURL:                  getEnv("GOSIP_PBX_URL", ""),

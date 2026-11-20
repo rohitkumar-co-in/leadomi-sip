@@ -61,6 +61,13 @@ func (h *WebhookHandler) VoiceIncoming(w http.ResponseWriter, r *http.Request) {
 	}
 	h.recordVoiceCall(r.Context(), callSID, "inbound", from, to, did.ID, nil)
 
+	// Demo mode: do not ring the phone; reject as busy and let n8n text back.
+	if automationDemoMode(r.Context(), h.deps) {
+		notifyMissedCall(r.Context(), h.deps, from, to, callSID, "busy", true)
+		h.respondTwiML(w, h.rejectTwiML("busy"))
+		return
+	}
+
 	// Get routing rules for this DID
 	routes, err := h.deps.DB.Routes.GetEnabledByDID(r.Context(), did.ID)
 	if err != nil || len(routes) == 0 {
@@ -302,6 +309,9 @@ func (h *WebhookHandler) SMSIncoming(w http.ResponseWriter, r *http.Request) {
 		h.respondTwiML(w, "")
 		return
 	}
+
+	// Opt-out keywords and the n8n assistant (when AI replies are on).
+	handleAutomationSMS(r.Context(), h.deps, from, to, body, messageSID)
 
 	// Check for auto-reply
 	autoReply := h.checkAutoReply(r.Context(), did.ID, body)

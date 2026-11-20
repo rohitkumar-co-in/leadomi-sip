@@ -14,6 +14,7 @@ They do not advertise unfinished features retained in legacy source files.
 | [Installation](INSTALLATION.md) | Fresh VPS, Twilio SIP domain, first admin |
 | [Configuration](CONFIGURATION.md) | Environment, metadata, certificates, network |
 | [Coolify](COOLIFY_DEPLOYMENT.md) | Deploy and update safely |
+| [Automation](AUTOMATION.md) | n8n missed-call text-back, AI SMS replies and outreach through the server |
 | [Administration](ADMINISTRATION.md) | SIP users, owned number assignment, web admins |
 | [User guide](USER_GUIDE.md) | Console, phones, history, troubleshooting |
 | [Softphones](TWILIO_SOFTPHONES.md) | Android Linphone setup and manual tests |

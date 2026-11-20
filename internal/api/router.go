@@ -56,6 +56,7 @@ func NewRouter(deps *Dependencies) chi.Router {
 	tlsHandler := NewTLSHandler(deps)
 	trunkHandler := NewTrunkHandler(deps)
 	businessHandler := newBusinessHandler(deps)
+	automationHandler := NewAutomationHandler(deps)
 	if deps.Config.PBXURL != "" {
 		if err := businessHandler.bootstrap(context.Background()); err != nil {
 			slog.Error("Could not initialize business SIP account assignments")
@@ -80,6 +81,8 @@ func NewRouter(deps *Dependencies) chi.Router {
 	// Public routes
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/pbx/messages", pbxHandler.SendMessage)
+		// n8n automation (secured by GOSIP_AUTOMATION_KEY)
+		r.Post("/automation/sms", automationHandler.SendSMS)
 		// Auth routes (public)
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/login", authHandler.Login)
@@ -245,6 +248,8 @@ func NewRouter(deps *Dependencies) chi.Router {
 				r.Route("/business", func(r chi.Router) {
 					r.Get("/accounts", businessHandler.List)
 					r.Put("/phone-number", businessHandler.SelectPhoneNumber)
+					r.Get("/automation", automationHandler.Settings)
+					r.Put("/automation", automationHandler.Settings)
 					// With an environment-defined phone user the console cannot
 					// create, change, disable or delete SIP users.
 					if !businessHandler.envPhoneUserConfigured() {
