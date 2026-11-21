@@ -41,10 +41,6 @@ number replaces its webhooks/application links and local routes: review first.
 2. [Coolify deployment](docs/COOLIFY_DEPLOYMENT.md): runtime variables, volumes,
    deployment, verification, a second server on the same VPS, and
    call troubleshooting.
-
-> **Use a static public IP** (AWS: Elastic IP). Call audio is sent to
-> `PBX_PUBLIC_IP`; if the server's IP changes, calls ring but have no sound.
-> The Dashboard's Setup check flags this.
 3. [Administrator guide](docs/ADMINISTRATION.md): create users, assign numbers,
    reset passwords, disable users, and manage access.
 4. [Phone and console guide](docs/USER_GUIDE.md): Linphone, calling, SMS,
@@ -52,6 +48,12 @@ number replaces its webhooks/application links and local routes: review first.
 5. [Operations and recovery](docs/BUSINESS_OPERATIONS.md),
    [backups](docs/BACKUP.md), [configuration](docs/CONFIGURATION.md), and
    [supported API](docs/API.md).
+6. [Troubleshooting](docs/TROUBLESHOOTING.md): common problems and fixes, and
+   the [changelog](CHANGELOG.md).
+
+> **Use a static public IP** (AWS: Elastic IP). Call audio is sent to
+> `PBX_PUBLIC_IP`; if the server's IP changes, calls ring but have no sound.
+> The Dashboard's Setup check flags this.
 
 ## Architecture and boundaries
 
