@@ -532,7 +532,7 @@ func (h *WebhookHandler) executeAction(ctx context.Context, route *models.Route,
 			}
 
 			return `<Response>
-				<Dial timeout="` + strconv.Itoa(timeout) + `" action="/api/webhooks/voice/dial-complete?DidId=` + strconv.FormatInt(did.ID, 10) + `">
+				<Dial answerOnBridge="true" timeout="` + strconv.Itoa(timeout) + `" action="/api/webhooks/voice/dial-complete?DidId=` + strconv.FormatInt(did.ID, 10) + `">
 					` + strings.Join(dialTargets, "\n") + `
 				</Dial>
 			</Response>`
