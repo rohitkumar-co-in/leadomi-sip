@@ -530,6 +530,10 @@ func (h *WebhookHandler) executeAction(ctx context.Context, route *models.Route,
 			if len(dialTargets) == 0 {
 				return h.voicemailTwiML(ctx, did.ID, from)
 			}
+			// The browser Dialer rings alongside the phone; first to answer wins.
+			if dialerConfigured(h.deps.Config) {
+				dialTargets = append(dialTargets, `<Client>`+dialerIdentity+`</Client>`)
+			}
 
 			return `<Response>
 				<Dial answerOnBridge="true" timeout="` + strconv.Itoa(timeout) + `" action="/api/webhooks/voice/dial-complete?DidId=` + strconv.FormatInt(did.ID, 10) + `">

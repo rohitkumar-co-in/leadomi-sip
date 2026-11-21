@@ -2,6 +2,12 @@
 
 ## 2026-11 — single-server rebuild, automation and second server
 
+### Browser Dialer
+- New **Dialer** page: keypad, call, hang up, mute, timer, from any browser.
+  Incoming calls ring the browser and Linphone together, with an Answer/Decline
+  pop-up on every console page. Uses the Twilio Voice JS SDK (`TWILIO_API_KEY_*`,
+  `TWILIO_TWIML_APP_SID`); Setup check verifies the TwiML App.
+
 ### Deployment
 - Fresh one-app Coolify install. The PBX takes its TLS certificate from Coolify's
   Traefik store automatically and waits for it before starting. Data volumes are

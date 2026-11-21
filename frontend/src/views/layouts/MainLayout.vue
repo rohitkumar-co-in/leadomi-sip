@@ -5,6 +5,8 @@ import {
   Phone,
   MessageSquare,
   FlaskConical,
+  PhoneCall,
+  PhoneIncoming,
   Smartphone,
   Voicemail,
   Settings,
@@ -16,6 +18,8 @@ import {
 } from 'lucide-vue-next'
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 
+import { useDialer } from '@/composables/dialer'
+const dialer = useDialer()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -32,11 +36,12 @@ function drawerKey(event:KeyboardEvent){
  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}
  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus()}
 }
-onMounted(()=>window.addEventListener('resize',resize))
+onMounted(()=>{window.addEventListener('resize',resize);if(authStore.isAdmin)dialer.start()})
 onBeforeUnmount(()=>{window.removeEventListener('resize',resize);if(sidebarOpen.value)document.body.style.overflow=previousOverflow})
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Dialer', href: '/dialer', icon: PhoneCall },
   { name: 'Phone Setup', href: '/phone-setup', icon: Smartphone },
   { name: 'Phone Numbers', href: '/dids', icon: Phone },
   { name: 'Activity Log', href: '/activity', icon: LayoutDashboard },
@@ -225,6 +230,14 @@ async function handleLogout() {
       <main class="py-6">
         <div class="console-content mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <RouterView class="page-enter" />
+          <div v-if="dialer.incoming.value" role="alertdialog" aria-label="Incoming call" class="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-80 z-50 rounded-lg border border-green-600 bg-white dark:bg-gray-800 shadow-xl p-4">
+            <p class="text-sm text-gray-500 flex items-center gap-2"><PhoneIncoming class="h-4 w-4 text-green-500" />Incoming call</p>
+            <p class="font-mono text-lg mt-1 break-all">{{ dialer.incoming.value.parameters?.From || 'Unknown caller' }}</p>
+            <div class="flex gap-2 mt-3">
+              <button type="button" @click="dialer.accept(); router.push('/dialer')" class="flex-1 bg-green-600 text-white rounded px-3 py-2">Answer</button>
+              <button type="button" @click="dialer.decline()" class="flex-1 bg-red-600 text-white rounded px-3 py-2">Decline</button>
+            </div>
+          </div>
         </div>
       </main>
     </div>

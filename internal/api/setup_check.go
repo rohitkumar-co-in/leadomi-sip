@@ -210,6 +210,27 @@ func (h *BusinessHandler) runSetupChecks(ctx context.Context) []setupCheck {
 		skip("number_webhooks", "Number webhooks point here", "Needs the phone number.")
 	}
 
+	// Browser Dialer (optional).
+	switch {
+	case !dialerConfigured(cfg):
+		add("dialer", "Browser dialer", "skip", "Not set up (optional).", "")
+	case !accountOK:
+		skip("dialer", "Browser dialer", "Needs working account keys.")
+	default:
+		var app struct {
+			VoiceURL    string `json:"voice_url"`
+			VoiceMethod string `json:"voice_method"`
+		}
+		want := base + "/api/webhooks/voice/browser"
+		if err := h.twilio(ctx, http.MethodGet, "/Applications/"+cfg.TwilioTwiMLAppSID+".json", nil, &app); err != nil {
+			add("dialer", "Browser dialer", "fail", "Twilio could not find TwiML App "+cfg.TwilioTwiMLAppSID+".", "Check TWILIO_TWIML_APP_SID belongs to this Twilio account.")
+		} else if app.VoiceURL != want || !strings.EqualFold(app.VoiceMethod, "POST") {
+			add("dialer", "Browser dialer", "fail", fmt.Sprintf("TwiML App Voice URL is %q.", app.VoiceURL), "Set it to "+want+" with HTTP POST.")
+		} else {
+			add("dialer", "Browser dialer", "ok", "TwiML App points here.", "")
+		}
+	}
+
 	// 9. Server side: PBX, phone user, registration.
 	healthy := false
 	if req, err := http.NewRequestWithContext(ctx, http.MethodGet, cfg.PBXURL+"/health", nil); err == nil {

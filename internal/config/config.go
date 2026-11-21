@@ -74,6 +74,9 @@ type Config struct {
 	// Dedicated Twilio SIP Domain (SD…) and Credential List (CL…) identifiers.
 	// Optional: values stored in the database take precedence.
 	TwilioSIPDomainSID      string
+	TwilioAPIKeySID         string
+	TwilioAPIKeySecret      string
+	TwilioTwiMLAppSID       string
 	TwilioCredentialListSID string
 	// TwilioBootstrapUser is the server's own Twilio SIP credential username
 	// (PBX_TWILIO_USER). A phone user may share it.
@@ -143,6 +146,9 @@ func Load() *Config {
 		SIPDomain:               getEnv("GOSIP_SIP_DOMAIN", "localhost"),
 		TwilioSIPDomain:         getEnv("TWILIO_SIP_DOMAIN", ""),
 		TwilioSIPDomainSID:      getEnv("TWILIO_SIP_DOMAIN_SID", ""),
+		TwilioAPIKeySID:         getEnv("TWILIO_API_KEY_SID", ""),
+		TwilioAPIKeySecret:      getEnv("TWILIO_API_KEY_SECRET", ""),
+		TwilioTwiMLAppSID:       getEnv("TWILIO_TWIML_APP_SID", ""),
 		TwilioCredentialListSID: getEnv("TWILIO_CREDENTIAL_LIST_SID", ""),
 		TwilioBootstrapUser:     getEnv("PBX_TWILIO_USER", ""),
 		PhonePassword:           getEnv("GOSIP_PHONE_PASSWORD", ""),

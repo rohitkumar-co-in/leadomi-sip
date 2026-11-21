@@ -38,6 +38,15 @@ Run the **Setup check** on the Dashboard first: it reads Twilio and the server
 | Sending a text fails (server log: `415 Unsupported Media Type`) | CPIM is on. | Settings → Chat → "Use CPIM in basic conversations" OFF. |
 | Second Linphone signs in and the first stops ringing | One registered device per phone user. | Use one device per server account. |
 
+## Browser Dialer
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Dialer says "not set up yet" | API key / TwiML App variables missing. | Follow *Browser Dialer* in the Coolify guide and redeploy. |
+| Dialer will not start / no sound | Microphone blocked. | Click the lock icon in the address bar → allow Microphone, reload. |
+| Browser calls fail at once | TwiML App Voice URL wrong. | Setup check → *Browser dialer*; set it to `/api/webhooks/voice/browser` (POST). |
+| Incoming call does not ring the browser | The console tab is closed or the phone is locked. | Keep a console tab open; Linphone still rings. |
+
 ## Calls
 
 | Problem | Cause | Fix |

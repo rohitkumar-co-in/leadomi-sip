@@ -379,7 +379,10 @@ func SecurityHeaders(next http.Handler) http.Handler {
 				"style-src 'self' 'unsafe-inline'; "+
 				"img-src 'self' data: blob:; "+
 				"font-src 'self' data:; "+
-				"connect-src 'self'; "+
+				// The browser Dialer (Twilio Voice SDK) signals over wss to
+				// Twilio, sends call-quality reports and loads its ringtones.
+				"connect-src 'self' wss://*.twilio.com https://*.twilio.com; "+
+				"media-src 'self' blob: https://media.twiliocdn.com https://sdk.twilio.com; "+
 				"frame-ancestors 'none'; "+
 				"base-uri 'self'; "+
 				"form-action 'self'")
@@ -387,7 +390,7 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		h.Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+		h.Set("Permissions-Policy", "geolocation=(), microphone=(self), camera=()")
 		next.ServeHTTP(w, r)
 	})
 }

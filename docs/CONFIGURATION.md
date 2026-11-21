@@ -22,6 +22,8 @@ environment variables below supply that account's API credentials.
 | `GOSIP_PBX_SIP_DOMAIN` | Public phone hostname, e.g. `sip.example.com` |
 | `GOSIP_PBX_SIP_PORT` | Public TLS port for phones; defaults to `5061`. Use a different port (e.g. `5062`) for a second server on the same VPS |
 | `PBX_DOMAIN` | Same public phone hostname |
+| `TWILIO_API_KEY_SID` / `TWILIO_API_KEY_SECRET` | Optional, browser Dialer: Twilio API key (`SK…`) and its secret |
+| `TWILIO_TWIML_APP_SID` | Optional, browser Dialer: TwiML App (`AP…`) whose Voice URL is `/api/webhooks/voice/browser` |
 | `PBX_PUBLIC_IP` | Static public IPv4 for SIP/RTP NAT advertisement. **Must be the server's current IP** (use an AWS Elastic IP); if it is stale, calls have no audio. The Setup check compares it with the domain's DNS |
 | `PBX_RTP_PORT_START` / `PBX_RTP_PORT_END` | Public and container RTP range; defaults to `10000`–`10100`. Must not overlap another server on the same VPS (e.g. `11000`–`11100`) |
 | `PBX_PROXY_HOST_DIR` | Coolify only: Traefik directory holding `acme.json`; defaults to `/data/coolify/proxy` |

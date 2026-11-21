@@ -80,6 +80,26 @@ Do **not** define `GOSIP_PBX_UNUSED_API_CREDENTIAL`. Leave
 5. Configure Linphone, then test an inbound and outbound call and SMS.
 6. Install the [backup timer](BACKUP.md).
 
+## Browser Dialer (optional)
+
+The **Dialer** page lets an administrator call from any browser, and incoming
+calls ring the browser alongside Linphone (first to answer wins). It uses the
+Twilio Voice JavaScript SDK; no extra server ports are needed. Per server, in
+that server's Twilio account:
+
+1. **API key:** Twilio Console → Account → *API keys & tokens* → *Create API
+   key* (type Standard). Copy the SID (`SK…`) and the Secret (shown once).
+2. **TwiML App:** Voice → Manage → *TwiML Apps* → *Create*. Friendly name e.g.
+   `Leadomi Dialer`; **Voice Request URL**
+   `https://sip.example.com/api/webhooks/voice/browser`, method **POST**. Save
+   and copy its SID (`AP…`).
+3. In Coolify add `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET` and
+   `TWILIO_TWIML_APP_SID`, then redeploy. The Setup check shows
+   **Browser dialer** in green when the TwiML App points at this server.
+
+Allow microphone access when the browser asks. Browser calls are billed at
+Twilio's normal rates plus the Voice SDK client charge.
+
 ## Second server on the same VPS
 
 Each server needs its own Coolify app (same repository), hostname, Twilio
