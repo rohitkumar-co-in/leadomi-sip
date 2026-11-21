@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { Phone, PhoneOff, Mic, MicOff, Delete, Grid3x3, PhoneIncoming, PhoneOutgoing, PhoneMissed, Settings2, MessageSquare } from 'lucide-vue-next'
 import api from '@/api/client'
 import { list, dateTime } from '@/utils/display'
@@ -26,6 +26,10 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'Enter' && !d.inCall.value) call()
   else if (e.key === 'Escape' && d.inCall.value) d.hangup()
 }
+const route = useRoute()
+// Deep link from other tools: /dialer?to=+447700900123 prefills the number.
+const linked = typeof route.query.to === 'string' ? clean(route.query.to) : ''
+if (/^\+[1-9]\d{7,14}$/.test(linked)) entry.value = linked
 onMounted(() => { d.start(); loadRecent(); tick = setInterval(() => { now.value = Date.now() }, 1000); window.addEventListener('keydown', onKey) })
 onUnmounted(() => { clearInterval(tick); window.removeEventListener('keydown', onKey) })
 watch(() => d.inCall.value, (on) => { if (!on) { showKeys.value = false; setTimeout(loadRecent, 2500) } })

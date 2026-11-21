@@ -77,7 +77,9 @@ onMounted(async () => {
   await loadDIDs();await loadConversations()
   // Opened from the Dialer: jump to that number's conversation or start one.
   const to=typeof route.query.to==='string'?route.query.to:''
-  if(/^\+[1-9]\d{7,14}$/.test(to)){recipient.value=to;if(conversations.value.some(conv=>conv.phone_number===to)){selectedConversation.value=to;await loadMessages(to)}}
+  if(/^\+[1-9]\d{7,14}$/.test(to)){recipient.value=to;await loadMessages(to)
+    const body=typeof route.query.body==='string'?route.query.body.slice(0,1600):''
+    if(body)newMessage.value=body}
 })
 
 async function loadDIDs() {
