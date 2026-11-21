@@ -27,6 +27,8 @@ const (
 	automationActor      = "Automation (n8n)"
 	automationDemoKey    = "automation_demo_mode"
 	automationAIKey      = "automation_ai_enabled"
+	// The Simulator is on unless an administrator turns it off.
+	simulatorOffKey = "simulator_disabled"
 	automationHumanPause = 24 * time.Hour
 	// A missed call lets the AI answer that caller for this long; each
 	// forwarded reply extends it. Other texts (e.g. outreach replies) never
@@ -368,6 +370,8 @@ type automationSettings struct {
 	KeySet     bool `json:"key_set"`
 	MissedCall bool `json:"missed_call_url_set"`
 	SMS        bool `json:"sms_url_set"`
+	Simulator  bool `json:"simulator_enabled"`
+	Dialer     bool `json:"dialer_configured"`
 }
 
 // Settings reads (GET) or changes (PUT {demo_mode, ai_enabled}) the toggles.
@@ -377,12 +381,17 @@ func (h *AutomationHandler) Settings(w http.ResponseWriter, r *http.Request) {
 		var input struct {
 			DemoMode  *bool `json:"demo_mode"`
 			AIEnabled *bool `json:"ai_enabled"`
+			Simulator *bool `json:"simulator_enabled"`
 		}
 		if json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&input) != nil {
 			WriteValidationError(w, "Invalid settings", nil)
 			return
 		}
-		for key, value := range map[string]*bool{automationDemoKey: input.DemoMode, automationAIKey: input.AIEnabled} {
+		if input.Simulator != nil {
+			off := !*input.Simulator
+			input.Simulator = &off
+		}
+		for key, value := range map[string]*bool{automationDemoKey: input.DemoMode, automationAIKey: input.AIEnabled, simulatorOffKey: input.Simulator} {
 			if value == nil {
 				continue
 			}
@@ -403,5 +412,7 @@ func (h *AutomationHandler) Settings(w http.ResponseWriter, r *http.Request) {
 		KeySet:     automationKeyConfigured(h.deps),
 		MissedCall: c != nil && c.AutomationMissedCallURL != "",
 		SMS:        c != nil && c.AutomationSMSURL != "",
+		Simulator:  !automationSetting(ctx, h.deps, simulatorOffKey),
+		Dialer:     c != nil && dialerConfigured(c),
 	})
 }

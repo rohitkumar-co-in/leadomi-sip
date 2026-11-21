@@ -8,6 +8,12 @@
   pop-up on every console page. Uses the Twilio Voice JS SDK (`TWILIO_API_KEY_*`,
   `TWILIO_TWIML_APP_SID`); Setup check verifies the TwiML App.
 
+### Settings
+- **Features status** panel: n8n connection, missed-call text-back, Demo mode,
+  AI replies, Simulator, browser dialer and Linphone, each marked active, off or
+  not set up.
+- **Simulator** can be switched off (hides the page and blocks simulations).
+
 ### Deployment
 - Fresh one-app Coolify install. The PBX takes its TLS certificate from Coolify's
   Traefik store automatically and waits for it before starting. Data volumes are

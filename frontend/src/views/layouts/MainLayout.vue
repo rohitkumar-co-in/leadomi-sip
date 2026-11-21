@@ -16,9 +16,10 @@ import {
   Menu,
   X
 } from 'lucide-vue-next'
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 
 import { useDialer } from '@/composables/dialer'
+import api from '@/api/client'
 const dialer = useDialer()
 const route = useRoute()
 const router = useRouter()
@@ -36,8 +37,10 @@ function drawerKey(event:KeyboardEvent){
  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}
  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus()}
 }
-onMounted(()=>{window.addEventListener('resize',resize);if(authStore.isAdmin)dialer.start()})
-onBeforeUnmount(()=>{window.removeEventListener('resize',resize);if(sidebarOpen.value)document.body.style.overflow=previousOverflow})
+const simulatorOn=ref(true)
+function features(e:Event){simulatorOn.value=(e as CustomEvent).detail?.simulator_enabled!==false}
+onMounted(()=>{window.addEventListener('resize',resize);window.addEventListener('leadomi:features',features);if(authStore.isAdmin){dialer.start();api.get('/business/automation').then(r=>{simulatorOn.value=r.data.simulator_enabled!==false}).catch(()=>{})}})
+onBeforeUnmount(()=>{window.removeEventListener('resize',resize);window.removeEventListener('leadomi:features',features);if(sidebarOpen.value)document.body.style.overflow=previousOverflow})
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -50,6 +53,8 @@ const navigation = [
   { name: 'Voicemails', href: '/voicemails', icon: Voicemail },
   { name: 'Settings', href: '/settings', icon: Settings }
 ]
+
+const visibleNavigation = computed(() => navigation.filter(item => item.href !== '/simulator' || simulatorOn.value))
 
 const adminNavigation = [
   { name: 'Administrators', href: '/users', icon: Users }
@@ -82,7 +87,7 @@ async function handleLogout() {
         </div>
         <nav class="min-h-0 flex-1 overflow-y-auto space-y-1 px-2 py-4">
           <RouterLink
-            v-for="item in navigation"
+            v-for="item in visibleNavigation"
             :key="item.name"
             :to="item.href"
             :class="[
@@ -142,7 +147,7 @@ async function handleLogout() {
         </div>
         <nav class="min-h-0 flex-1 overflow-y-auto space-y-1 px-2 py-4">
           <RouterLink
-            v-for="item in navigation"
+            v-for="item in visibleNavigation"
             :key="item.name"
             :to="item.href"
             :class="[

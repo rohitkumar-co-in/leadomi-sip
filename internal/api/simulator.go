@@ -42,6 +42,10 @@ func (h *SimulatorHandler) Simulate(w http.ResponseWriter, r *http.Request) {
 		From   string `json:"from"`
 		Body   string `json:"body"`
 	}
+	if automationSetting(r.Context(), h.deps, simulatorOffKey) {
+		WriteError(w, http.StatusForbidden, "simulator_disabled", "The Simulator is turned off in Settings", nil)
+		return
+	}
 	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&input) != nil || !isSimulatorNumber(input.From) {
 		WriteValidationError(w, "Use a simulator number from +447700900000 to +447700900999", nil)
 		return

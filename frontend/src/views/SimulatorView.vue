@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import api from '@/api/client'
 import { PhoneMissed, Send, RefreshCw } from 'lucide-vue-next'
@@ -11,7 +12,7 @@ const draft = ref('')
 const busy = ref(false)
 const notice = ref('')
 const error = ref('')
-const automation = ref({ demo_mode: false, ai_enabled: false, key_set: false, missed_call_url_set: false, sms_url_set: false })
+const automation = ref({ demo_mode: false, ai_enabled: false, key_set: false, missed_call_url_set: false, sms_url_set: false, simulator_enabled: true })
 const valid = computed(() => /^\+447700900\d{3}$/.test(customer.value))
 const sorted = computed(() => [...messages.value].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id - b.id))
 
@@ -71,6 +72,7 @@ onUnmounted(() => clearInterval(timer))
       <h1 class="text-2xl font-semibold">Simulator</h1>
       <p class="text-sm text-gray-500 mt-2">Act as a customer from a fictional UK number (Ofcom's reserved +447700900xxx range). Calls and texts run through the real server, n8n and AI, and appear in Messages and on your phone, but replies to these numbers are never sent by Twilio, so nothing is charged or delivered to a real person.</p>
     </div>
+    <div v-if="!automation.simulator_enabled" role="alert" class="rounded-lg border border-amber-500 bg-amber-500/10 p-4 text-sm">The Simulator is turned off. Turn it on in <RouterLink to="/settings" class="text-primary">Settings</RouterLink>.</div>
     <div class="flex flex-wrap gap-2 text-xs">
       <span :class="['rounded px-2 py-1 border', automation.key_set && automation.missed_call_url_set && automation.sms_url_set ? 'border-green-600 text-green-500' : 'border-amber-600 text-amber-500']">n8n {{ automation.key_set && automation.missed_call_url_set && automation.sms_url_set ? 'connected' : 'not connected' }}</span>
       <span :class="['rounded px-2 py-1 border', automation.ai_enabled ? 'border-green-600 text-green-500' : 'border-gray-500 text-gray-400']">AI replies {{ automation.ai_enabled ? 'on' : 'off' }}</span>

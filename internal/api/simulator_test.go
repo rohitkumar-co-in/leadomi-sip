@@ -86,3 +86,24 @@ func TestMessagesWithoutProviderSIDDoNotCollide(t *testing.T) {
 		t.Fatalf("messages without SID could not be read back: %v", err)
 	}
 }
+
+func TestSimulatorCanBeTurnedOff(t *testing.T) {
+	_, deps, _ := setupAutomation(t)
+	settings := func(body string) string {
+		rec := httptest.NewRecorder()
+		NewAutomationHandler(deps).Settings(rec, httptest.NewRequest("PUT", "/api/business/automation", strings.NewReader(body)))
+		return rec.Body.String()
+	}
+	if !strings.Contains(settings(`{}`), `"simulator_enabled":true`) {
+		t.Fatal("Simulator should be on by default")
+	}
+	if !strings.Contains(settings(`{"simulator_enabled":false}`), `"simulator_enabled":false`) {
+		t.Fatal("Simulator did not turn off")
+	}
+	rec := httptest.NewRecorder()
+	NewSimulatorHandler(deps).Simulate(rec, httptest.NewRequest("POST", "/api/business/simulator", strings.NewReader(`{"action":"missed_call","from":"+447700900123"}`)))
+	assertStatus(t, rec, 403)
+	if !strings.Contains(settings(`{"simulator_enabled":true}`), `"simulator_enabled":true`) {
+		t.Fatal("Simulator did not turn back on")
+	}
+}
