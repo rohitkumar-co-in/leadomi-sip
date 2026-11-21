@@ -31,7 +31,7 @@ handler block assignment; Leadomi SIP does not change service settings. Resolve
 that service manually in Twilio only after deciding which integration should
 receive messages. A service using number-level inbound webhooks is retained.
 
-Inventory, startup, login and page refresh are read-only toward Twilio. Existing
+Inventory, startup, login and page refresh are read-only towards Twilio. Existing
 working users are imported without resetting passwords or number callbacks.
 
 ## Excluded numbers

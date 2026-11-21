@@ -11,7 +11,7 @@ py -3 scripts/source-backup.py
 The script archives the committed Git revision into a new ZIP beside the
 checkout. It refuses pending changes, an existing output file, output inside
 the checkout, and tracked secrets/build/runtime artifacts. Dependencies are
-reproducible from `go.sum` and `frontend/pnpm-lock.yaml`. Fonts, their licenses,
+reproducible from `go.sum` and `frontend/pnpm-lock.yaml`. Fonts, their licences,
 embedded migrations, deployment definitions, tests and documentation remain
 in the archive. `.env.example` is a template without real credentials.
 

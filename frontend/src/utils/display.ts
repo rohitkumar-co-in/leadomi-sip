@@ -3,7 +3,7 @@ export function dateTime(value?:string):string{
  if(!value)return '—'
  const normalized=/[zZ]|[+-]\d\d:\d\d$/.test(value)?value:value.replace(' ','T')+'Z'
  const date=new Date(normalized)
- return Number.isNaN(date.getTime())?'—':date.toLocaleString()
+ return Number.isNaN(date.getTime())?'—':date.toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
 }
 
 export type Tone = 'good' | 'warn' | 'bad' | 'muted' | 'test'

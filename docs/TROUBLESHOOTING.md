@@ -36,7 +36,7 @@ Run the **Setup check** on the Dashboard first: it reads Twilio and the server
 | You hear the other side but they do not hear you | Microphone. | Linphone → Settings → Audio: pick the right microphone; check mute; Windows → Privacy → Microphone: allow desktop apps. |
 | "User cannot accept your call" | Media encryption is not SRTP, or PCMU/PCMA disabled. | Media encryption = SRTP (mandatory); enable PCMU and PCMA. |
 | Call drops after ~30 s / no ACK | Outbound proxy off. | Turn **Outgoing proxy** ON. |
-| A call "keeps loading" and never reaches the server | Linphone dialed a saved contact or history entry that holds a SIP address (e.g. `sid@sid.example.com`) instead of the number. | Type the number on the dial pad in `+44…` format, or fix the contact's address. |
+| A call "keeps loading" and never reaches the server | Linphone dialled a saved contact or history entry that holds a SIP address (e.g. `sid@sid.example.com`) instead of the number. | Type the number on the dial pad in `+44…` format, or fix the contact's address. |
 | Sending a text fails (server log: `415 Unsupported Media Type`) | CPIM is on. | Settings → Chat → "Use CPIM in basic conversations" OFF. |
 | Second Linphone signs in and the first stops ringing | One registered device per phone user. | Use one device per server account. |
 

@@ -27,7 +27,7 @@ packages. The frontend regression test lives in `frontend/tests/`.
 Generated `bin/`, `frontend/dist/`, `frontend/node_modules/`, TypeScript build
 metadata and Python caches are disposable and ignored. Runtime `data/`,
 recordings, backups, private keys and populated environment files are local or
-volume state, outside committed source. Dependencies, font assets/licenses and
+volume state, outside committed source. Dependencies, font assets/licences and
 SQL migrations are required source inputs and must remain in source backups.
 
 ## Development and verification

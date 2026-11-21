@@ -51,7 +51,7 @@ async function simulate(action: 'missed_call' | 'sms') {
 }
 function time(value: string) {
   const d = new Date(value)
-  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 let timer: ReturnType<typeof setInterval>
 onMounted(async () => {

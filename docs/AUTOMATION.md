@@ -53,7 +53,7 @@ Content-Type: application/json
 ```
 
 The message is sent from the phone's number, appears in Messages, counts
-toward the per-minute SMS limit and allowed-country policy, and is refused with
+towards the per-minute SMS limit and allowed-country policy, and is refused with
 403 for contacts who texted STOP (START opts back in). Use the same endpoint for
 outreach; send slowly and only to contacts who may lawfully be messaged.
 

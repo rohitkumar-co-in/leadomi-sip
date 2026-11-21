@@ -7,7 +7,7 @@ feature. Preserve provider connections, phone passwords and existing volumes.
 1. Read the current operational/API guides and capture a verified backup.
 2. Implement changes with explicit number-review boundaries and no startup
    provider writes. Cover provisioning guards, session revocation, attribution
-   snapshots and private bridge behavior with meaningful tests.
+   snapshots and private bridge behaviour with meaningful tests.
 3. Build Vue/TypeScript; run Go API/DB/SIP/startup tests; use isolated fake-provider
    and PBX integration tests without paid calls/SMS. Scan reachable dependency
    vulnerabilities when changing dependencies.

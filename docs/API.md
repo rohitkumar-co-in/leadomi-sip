@@ -60,7 +60,7 @@ SMS: `GET /messages/conversations?did_id=ID`,
 The UI selects an existing local DID. Administrator SMS actor is recorded.
 Call/SMS Activity Log records include `kind`, `id`, `actor`, `direction`,
 `from_number`, `to_number`, `status`, `occurred_at`, `duration`, `body`.
-Historical actors are not guessed; incoming assigned accounts are labeled.
+Historical actors are not guessed; incoming assigned accounts are labelled.
 
 ## Provider/private endpoints
 

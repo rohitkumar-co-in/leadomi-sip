@@ -29,7 +29,7 @@ interface Check { id: string; label: string; status: 'ok' | 'fail' | 'warn' | 's
 const checks = ref<Check[]>([]), checking = ref(false), checkError = ref(''), checkedAt = ref('')
 async function runChecks() {
   checking.value = true; checkError.value = ''
-  try { const res = await api.get('/business/setup-check', { timeout: 60000 }); checks.value = res.data.checks || []; checkedAt.value = new Date().toLocaleTimeString() }
+  try { const res = await api.get('/business/setup-check', { timeout: 60000 }); checks.value = res.data.checks || []; checkedAt.value = new Date().toLocaleTimeString('en-GB') }
   catch { checkError.value = 'Setup check could not run. Try again.' } finally { checking.value = false }
 }
 const icon = (s: string) => ({ ok: '✓', fail: '✗', warn: '!', skip: '–' } as Record<string, string>)[s] || '?'
