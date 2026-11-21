@@ -1,12 +1,16 @@
 # Fresh Leadomi SIP installation
 
+For the quickest correct path, use the
+[complete setup checklist](SETUP_CHECKLIST.md). This page gives background.
+
 Use this guide for a new server. For an existing server, follow the preservation
 and update procedure in [Coolify](COOLIFY_DEPLOYMENT.md). Never empty an existing
 data volume or run initial setup again to change branding or configuration.
 
 ## Prerequisites
 
-Use a maintained Ubuntu VPS with a static public IP, Docker/Compose v2, DNS
+Use a maintained Ubuntu VPS with a static public IP (AWS: **Elastic IP**;
+a changing IP breaks call audio), Docker/Compose v2, DNS
 control, and a Twilio account with owned voice-and-SMS-capable numbers. Start
 with at least two CPU cores, 2 GB RAM and 10 GB free disk; adjust to actual load.
 Builds require additional headroom. Hostname examples below use
@@ -22,15 +26,16 @@ PBX HTTP 8088, AMI, database, or unauthenticated management ports publicly.
 
 1. In Twilio Console, create a dedicated **Programmable Voice SIP Domain**.
    This uses SIP Domain credentials, not the legacy Elastic SIP Trunk editor.
-2. Enable secure calling and SIP registration. Create a dedicated Credential
+2. Enable **Secure media** and **SIP registration** (both required). Create a dedicated Credential
    List and attach it to both **Calls** and **Registrations** authentication.
 3. Add a bootstrap SIP credential to that list with a unique username and a
    generated alphanumeric password. Put these in `PBX_TWILIO_USER` and
-   `PBX_TWILIO_PASSWORD`; phone users later get separate credentials.
+   `PBX_TWILIO_PASSWORD`. `PBX_TWILIO_USER` is also the Linphone username.
 4. Set the SIP domain's outgoing Voice URL to
    `https://sip.example.com/api/webhooks/voice/outgoing`, method POST. This
    domain must be dedicated to this deployment: do not repoint a domain used
-   by an unrelated working system.
+   by an unrelated working system. Twilio also requires a **Primary handler
+   fails** URL: use a TwiML Bin that says the line is unavailable.
 5. Record the Domain SID (`SD…`) and Credential List SID (`CL…`) and set them
    as `TWILIO_SIP_DOMAIN_SID` and `TWILIO_CREDENTIAL_LIST_SID`.
 

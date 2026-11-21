@@ -2,26 +2,27 @@
 
 ## Console
 
-- **Dashboard**: backend/PBX/provider configuration health, last host backup,
-  on-demand database backups and recent administrator changes.
-- **SIP Users**: create a phone identity, explicitly review and assign an owned
-  number, download setup details, edit the name, reset a phone password or disable.
-- **Phone Numbers**: read-only live Twilio inventory and local assignments.
-- **Call Routing**: local incoming routing rules. Number webhook changes are
-  handled only by confirmed assignment, not by browsing this screen.
-- **Call History / Activity Log**: paginated call/SMS records with who, direction,
-  from/to, status and time. Saved actor labels stay stable on later reassignment.
-- **Messages**: view all business numbers or filter one number, load older
-  messages, and select a sending number for replies. Start a conversation using
-  an international `+number`. Status is submission/delivery status, not a read
-  receipt. Refresh reloads locally stored history.
-- **Voicemails**: available recordings, duration and provider transcripts.
-- **Settings**: your administrator password and outgoing usage policies.
-- **Administrators**: trusted web accounts, separate from phone users.
+- **Dashboard**: phone, phone server, AI and incoming-call status; the
+  read-only **Setup check** (Twilio, webhooks, certificate, call audio address,
+  Linphone, browser dialer) with a fix for each red item; backups; recent changes.
+- **Dialer**: call from any browser (keypad, mute, DTMF, recent calls with call
+  back / text, microphone and speaker choice). Incoming calls ring the browser
+  and Linphone together; an Answer/Decline pop-up shows on every page.
+- **Phone Setup**: Linphone settings with copy buttons, the automatic setup
+  link, and Windows/Android/iPhone steps.
+- **Phone Numbers**: Twilio numbers; **Use for phone** chooses the business number.
+- **Activity Log**: calls and texts with status, who and when.
+- **Messages**: conversations; start one with a `+number`.
+- **Simulator**: fictional `+447700900xxx` callers to test text-back and AI
+  without Twilio credits (can be turned off in Settings).
+- **Voicemails**: recordings and transcripts.
+- **Settings**: **Features status** (n8n, text-back, Demo mode, AI replies,
+  Simulator, browser dialer, Linphone), switches for Demo mode, AI replies and
+  Simulator, your password, and usage controls (allowed country prefixes, SMS
+  rate).
+- **Administrators**: console accounts.
 
-All web administrators can see business-wide history. Phone users only need
-their phone account. Times in Activity Log use the viewing device's timezone.
-Older records explicitly say when actor information was not captured.
+Times use the viewing device's timezone.
 
 ## Delete history
 
@@ -73,6 +74,8 @@ the phone remaining reachable. Softphone read receipts, typing indicators,
 browser calling, conferencing and transfer controls are not supported here.
 
 ## Troubleshooting
+
+See [Troubleshooting](TROUBLESHOOTING.md) for every known problem and fix.
 
 | Symptom | Check |
 |---|---|

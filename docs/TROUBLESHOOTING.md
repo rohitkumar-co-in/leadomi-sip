@@ -1,5 +1,7 @@
 # Troubleshooting
 
+Setting up from scratch? Use the [setup checklist](SETUP_CHECKLIST.md) first.
+
 These are real problems seen while setting up Leadomi SIP, with the fix for each.
 Run the **Setup check** on the Dashboard first: it reads Twilio and the server
 (read-only) and names most of these problems directly.
@@ -46,6 +48,14 @@ Run the **Setup check** on the Dashboard first: it reads Twilio and the server
 | Dialer will not start / no sound | Microphone blocked. | Click the lock icon in the address bar → allow Microphone, reload. |
 | Browser calls fail at once | TwiML App Voice URL wrong. | Setup check → *Browser dialer*; set it to `/api/webhooks/voice/browser` (POST). |
 | Incoming call does not ring the browser | The console tab is closed or the phone is locked. | Keep a console tab open; Linphone still rings. |
+
+## Settings and features
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Not sure whether n8n, AI, Demo mode, Simulator or the Dialer is active | | Settings → **Features status** shows each as active, off or not set up, and which variables are missing. |
+| Simulator page missing from the menu | Simulator switched off. | Settings → Simulator ON. |
+| Second server shows n8n "Not set up" | Expected when that server has no automation. | Nothing to fix. |
 
 ## Calls
 

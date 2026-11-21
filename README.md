@@ -8,6 +8,10 @@ JetBrains Mono fonts.
 
 Repository: https://github.com/rohitkumar-co-in/leadomi-sip
 
+> **Setting up a new server?** Follow the
+> [complete setup checklist](docs/SETUP_CHECKLIST.md) step by step, then
+> [Troubleshooting](docs/TROUBLESHOOTING.md) if anything fails.
+
 ## What works
 
 - Inbound and outbound telephone calls over TLS SIP and SRTP audio.
@@ -36,6 +40,8 @@ number replaces its webhooks/application links and local routes: review first.
 
 ## Start here
 
+0. [Complete setup checklist](docs/SETUP_CHECKLIST.md): everything for a new
+   server, in order, with the reason for each step.
 1. [Fresh installation](docs/INSTALLATION.md): infrastructure, credentials,
    certificates, first administrator, and server metadata.
 2. [Coolify deployment](docs/COOLIFY_DEPLOYMENT.md): runtime variables, volumes,
