@@ -477,8 +477,8 @@ func TestSetupCheck(t *testing.T) {
 	want := map[string]string{
 		"account": "ok", "sip_domain": "ok", "domain_security": "ok", "domain_voice_url": "ok",
 		"credential_list": "ok", "credential": "ok", "number": "ok",
-		"number_webhooks": "fail", // status callback points elsewhere
-		"pbx": "ok", "phone_user": "fail", // GOSIP_PHONE_PASSWORD not set
+		"number_webhooks": "fail",                     // status callback points elsewhere
+		"pbx":             "ok", "phone_user": "fail", // GOSIP_PHONE_PASSWORD not set
 	}
 	for id, status := range want {
 		if got[id] != status {
@@ -491,5 +491,32 @@ func TestSetupCheck(t *testing.T) {
 		if c.ID == "sip_domain" && (c.Status != "fail" || !strings.Contains(c.Fix, "TWILIO_SIP_DOMAIN")) {
 			t.Fatalf("domain mismatch not reported: %+v", c)
 		}
+	}
+}
+
+// Linphone remote provisioning carries server, port and SRTP but no password,
+// and is only served at the unguessable token URL.
+func TestLinphoneProvisioning(t *testing.T) {
+	setup := setupTestAPI(t)
+	cfg := &config.Config{PBXSecret: "pbx-secret-value", PBXSIPDomain: "sid.example.test", PBXSIPPort: 5062, PublicURL: "https://sid.example.test", TwilioBootstrapUser: "sid", PhonePassword: "SecretPhonePass1"}
+	h := newBusinessHandler(&Dependencies{DB: setup.DB, Config: cfg})
+	router := chi.NewRouter()
+	router.Get("/api/linphone/{token}", h.LinphoneConfig)
+	get := func(path string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+		return rec
+	}
+	if get("/api/linphone/guess.xml").Code != 404 {
+		t.Fatal("provisioning served for a wrong token")
+	}
+	url := linphoneProvisioningURL(&Dependencies{Config: cfg})
+	rec := get(strings.TrimPrefix(url, "https://sid.example.test"))
+	body := rec.Body.String()
+	if rec.Code != 200 || !strings.Contains(body, "sip:sid.example.test:5062;transport=tls") || !strings.Contains(body, "<entry name=\"media_encryption\" overwrite=\"true\">srtp</entry>") {
+		t.Fatalf("provisioning XML is wrong (%d): %s", rec.Code, body)
+	}
+	if strings.Contains(body, "SecretPhonePass1") || strings.Contains(body, "passwd") || strings.Contains(body, "ha1") {
+		t.Fatal("provisioning XML must not contain the password")
 	}
 }

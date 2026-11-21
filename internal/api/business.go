@@ -210,7 +210,7 @@ func (h *BusinessHandler) List(w http.ResponseWriter, r *http.Request) {
 		result = append(result, map[string]interface{}{"id": d.ID, "name": d.Name, "username": d.Username, "number": number, "state": state, "enabled": enabled, "online": enabled && online[d.ID], "protected": locks[number]})
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	WriteJSON(w, 200, map[string]interface{}{"data": result, "server": phoneServer(h.deps.Config.PBXSIPDomain), "proxy": phoneProxyURI(h.deps.Config.PBXSIPPort, h.deps.Config.PBXSIPDomain), "sip_port": phoneSIPPort(h.deps.Config.PBXSIPPort)})
+	WriteJSON(w, 200, map[string]interface{}{"data": result, "server": phoneServer(h.deps.Config.PBXSIPDomain), "proxy": phoneProxyURI(h.deps.Config.PBXSIPPort, h.deps.Config.PBXSIPDomain), "sip_port": phoneSIPPort(h.deps.Config.PBXSIPPort), "provisioning_url": linphoneProvisioningURL(h.deps)})
 }
 func (h *BusinessHandler) credentialList(ctx context.Context) (string, error) {
 	// Database metadata wins; runtime variables configure a fresh install.

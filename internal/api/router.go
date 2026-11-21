@@ -85,6 +85,8 @@ func NewRouter(deps *Dependencies) chi.Router {
 		// n8n automation (secured by GOSIP_AUTOMATION_KEY)
 		r.Post("/automation/sms", automationHandler.SendSMS)
 		r.Post("/automation/session/end", automationHandler.EndSession)
+		// Linphone remote provisioning (unguessable URL, no password inside)
+		r.Get("/linphone/{token}", businessHandler.LinphoneConfig)
 		// Auth routes (public)
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/login", authHandler.Login)

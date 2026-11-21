@@ -7,7 +7,7 @@ type Platform = 'windows' | 'android' | 'iphone'
 const platform = ref<Platform>('windows')
 const account = ref<{ username: string; number: string; online: boolean; state: string } | null>(null)
 const server = ref('sip.leadomi.com'), proxy = ref(''), port = ref(5061)
-const loaded = ref(false), copied = ref('')
+const loaded = ref(false), copied = ref(''), provisioning = ref('')
 
 async function load() {
   try {
@@ -15,6 +15,7 @@ async function load() {
     account.value = (res.data.data || [])[0] || null
     server.value = res.data.server || server.value
     port.value = res.data.sip_port || 5061
+    provisioning.value = res.data.provisioning_url || ''
     proxy.value = `<sip:${server.value}:${port.value};transport=tls>`
   } catch { /* keep last values */ } finally { loaded.value = true }
 }
@@ -92,6 +93,23 @@ onUnmounted(() => clearInterval(timer))
         <span class="border rounded-full px-2 py-0.5">Codecs: PCMU + PCMA</span>
         <span class="border rounded-full px-2 py-0.5">CPIM: OFF</span>
       </div>
+    </div>
+
+    <div v-if="provisioning" class="bg-white dark:bg-gray-800 rounded-lg p-5 space-y-3 border border-primary/40">
+      <h2 class="font-semibold">Easiest: automatic setup link</h2>
+      <p class="text-sm text-gray-500">Linphone fills in the server, port, TLS and SRTP for you. Use this when the port is not 5061, because the Linphone sign-in form cannot set a port.</p>
+      <div class="flex items-center justify-between gap-3 rounded border border-gray-200 dark:border-gray-700 px-3 py-2">
+        <p class="font-mono text-xs break-all min-w-0">{{ provisioning }}</p>
+        <button type="button" @click="copy('provisioning', provisioning)" class="shrink-0 border rounded px-2 py-1 text-xs inline-flex items-center gap-1" aria-label="Copy setup link">
+          <component :is="copied === 'provisioning' ? Check : Copy" class="h-3.5 w-3.5" />{{ copied === 'provisioning' ? 'Copied' : 'Copy' }}
+        </button>
+      </div>
+      <ol class="list-decimal pl-5 text-sm space-y-1">
+        <li>Linphone start screen → <b>Fetch remote configuration</b> (Windows: ☰ → Assistant → Fetch remote configuration).</li>
+        <li>Paste the link and confirm. Linphone restarts with the account added.</li>
+        <li>When it asks for the password, enter the phone password. Done.</li>
+      </ol>
+      <p class="text-xs text-gray-500">The link holds no password. Keep it private anyway.</p>
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-lg p-5 space-y-4">
