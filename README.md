@@ -39,7 +39,12 @@ number replaces its webhooks/application links and local routes: review first.
 1. [Fresh installation](docs/INSTALLATION.md): infrastructure, credentials,
    certificates, first administrator, and server metadata.
 2. [Coolify deployment](docs/COOLIFY_DEPLOYMENT.md): runtime variables, volumes,
-   deployment, verification, and preserving an existing installation.
+   deployment, verification, a second server on the same VPS, and
+   call troubleshooting.
+
+> **Use a static public IP** (AWS: Elastic IP). Call audio is sent to
+> `PBX_PUBLIC_IP`; if the server's IP changes, calls ring but have no sound.
+> The Dashboard's Setup check flags this.
 3. [Administrator guide](docs/ADMINISTRATION.md): create users, assign numbers,
    reset passwords, disable users, and manage access.
 4. [Phone and console guide](docs/USER_GUIDE.md): Linphone, calling, SMS,

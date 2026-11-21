@@ -19,6 +19,11 @@ Create an ordinary SIP account using the downloaded setup file:
 | Transport | TLS on the port shown in the setup file (default 5061) |
 | Media encryption | SRTP |
 | Basic conversation CPIM | Off |
+| Allow IPv6 (Settings → Network) | **Off**: the server is IPv4 only; with IPv6 on, calls have no or one-way audio |
+
+If the port is not 5061, Linphone's sign-in form cannot set it: use the
+automatic setup link on the Phone Setup page, or enter the URI (with `< >`) as
+the proxy and turn Outbound proxy on.
 
 Set **both** proxy fields; using only a registrar can send calls/messages to the
 wrong address. Keep the certificate hostname intact. Enable G.711 PCMU/PCMA

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -221,6 +222,31 @@ func (h *BusinessHandler) runSetupChecks(ctx context.Context) []setupCheck {
 		add("pbx", "Phone server running", "ok", "Asterisk is running with a valid certificate.", "")
 	} else {
 		add("pbx", "Phone server running", "fail", "The phone server is not healthy.", "Usually missing Twilio values or no TLS certificate yet; check the pbx container logs in Coolify.")
+	}
+	// Call audio goes to PBX_PUBLIC_IP. If the VPS IP changes (e.g. an AWS
+	// instance restarted without an Elastic IP), calls ring but have no sound.
+	if domain := phoneServer(cfg.PBXSIPDomain); domain != "" {
+		addrs, err := net.DefaultResolver.LookupHost(ctx, domain)
+		var v4 []string
+		for _, a := range addrs {
+			if ip := net.ParseIP(a); ip != nil && ip.To4() != nil {
+				v4 = append(v4, a)
+			}
+		}
+		matched := false
+		for _, a := range v4 {
+			matched = matched || a == cfg.PBXPublicIP
+		}
+		switch {
+		case cfg.PBXPublicIP == "":
+			add("public_ip", "Call audio address", "warn", "PBX_PUBLIC_IP is not visible to this check.", "Make sure PBX_PUBLIC_IP in Coolify is the server's current public IPv4.")
+		case err != nil || len(v4) == 0:
+			add("public_ip", "Call audio address", "warn", "Could not look up "+domain+".", "Check the DNS A record for "+domain+".")
+		case !matched:
+			add("public_ip", "Call audio address", "fail", fmt.Sprintf("PBX_PUBLIC_IP is %s but %s points to %s. Calls will ring with no sound.", cfg.PBXPublicIP, domain, strings.Join(v4, ", ")), "If the server's IP changed, set PBX_PUBLIC_IP to the new IP in Coolify and redeploy. Use an Elastic IP so it stops changing.")
+		default:
+			add("public_ip", "Call audio address", "ok", cfg.PBXPublicIP+" matches "+domain+".", "")
+		}
 	}
 	var state, assigned string
 	if cfg.TwilioBootstrapUser != "" {

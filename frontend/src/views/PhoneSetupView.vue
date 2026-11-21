@@ -35,21 +35,21 @@ const steps: Record<Platform, { title: string; items: string[] }[]> = {
     { title: 'Add the account', items: ['Open Linphone → Use a SIP account (or ☰ → Assistant → Use a SIP account).', 'Enter the Username, SIP domain and Password, and choose Transport: TLS. Click Use / Log in.'] },
     { title: 'Server address (important)', items: ['☰ → Settings → SIP Accounts → Edit your account.', 'Set SIP proxy / Server address to the value above (with < >).', 'Turn Outbound proxy ON and Registration ON. Save.'] },
     { title: 'Encryption and audio', items: ['Settings → Calls (or Security): Media encryption = SRTP, and Encryption is mandatory = ON.', 'Settings → Audio → Codecs: make sure PCMU and PCMA are enabled.'] },
-    { title: 'Messages', items: ['Settings → Chat: turn OFF “Use CPIM in basic conversations” if present.'] },
+    { title: 'Network and messages', items: ['Settings → Network: turn OFF “Allow IPv6”, then restart Linphone. The server is IPv4 only; with IPv6 on, calls connect with no sound.', 'Settings → Chat: turn OFF “Use CPIM in basic conversations” if present.'] },
   ],
   android: [
     { title: 'Install', items: ['Install Linphone from the Google Play Store and open it.'] },
     { title: 'Add the account', items: ['Choose Use a SIP account.', 'Enter the Username, Password and SIP domain; set Transport to TLS. Tap Login.'] },
     { title: 'Server address (important)', items: ['Settings → Accounts → your account (or Account settings).', 'Set SIP proxy / Server address to the value above and turn Outbound proxy ON.'] },
     { title: 'Encryption and audio', items: ['Settings → Calls: Media encryption = SRTP, Encryption mandatory = ON.', 'Settings → Audio: make sure PCMU and PCMA codecs are enabled.'] },
-    { title: 'Keep it ringing', items: ['Android Settings → Apps → Linphone → Battery: set to Unrestricted (no battery optimisation).', 'Allow notifications and “Display over other apps” so incoming calls show.', 'Settings → Chat: turn OFF “Use CPIM in basic conversations”.'] },
+    { title: 'Keep it ringing', items: ['Settings → Network: turn OFF “Allow IPv6” (mobile data often uses IPv6; the server is IPv4 only).', 'Android Settings → Apps → Linphone → Battery: set to Unrestricted (no battery optimisation).', 'Allow notifications and “Display over other apps” so incoming calls show.', 'Settings → Chat: turn OFF “Use CPIM in basic conversations”.'] },
   ],
   iphone: [
     { title: 'Install', items: ['Install Linphone from the App Store and open it. Allow microphone and notifications.'] },
     { title: 'Add the account', items: ['Choose Use a SIP account.', 'Enter the Username, Password and SIP domain; set Transport to TLS. Tap Login.'] },
     { title: 'Server address (important)', items: ['Settings → Account → your account.', 'Set SIP proxy / Server address to the value above and turn Outbound proxy ON.'] },
     { title: 'Encryption and audio', items: ['Settings → Calls: Media encryption = SRTP, Encryption mandatory = ON.', 'Settings → Audio: make sure PCMU and PCMA codecs are enabled.'] },
-    { title: 'Keep it ringing', items: ['iPhone apps sleep in the background: keep Linphone open (or in recent apps) when expecting calls.', 'Settings → Chat: turn OFF “Use CPIM in basic conversations”.'] },
+    { title: 'Keep it ringing', items: ['Settings → Network: turn OFF “Allow IPv6” (the server is IPv4 only).', 'iPhone apps sleep in the background: keep Linphone open (or in recent apps) when expecting calls.', 'Settings → Chat: turn OFF “Use CPIM in basic conversations”.'] },
   ],
 }
 const tabs: { id: Platform; label: string; icon: typeof Monitor }[] = [
@@ -92,6 +92,7 @@ onUnmounted(() => clearInterval(timer))
         <span class="border rounded-full px-2 py-0.5">Media encryption: SRTP (mandatory)</span>
         <span class="border rounded-full px-2 py-0.5">Codecs: PCMU + PCMA</span>
         <span class="border rounded-full px-2 py-0.5">CPIM: OFF</span>
+        <span class="border rounded-full px-2 py-0.5">Allow IPv6: OFF</span>
       </div>
     </div>
 
@@ -139,7 +140,9 @@ onUnmounted(() => clearInterval(timer))
         <li><b>Stuck on “In progress”:</b> your network may block port {{ port }}. Try a mobile hotspot, or turn off VPNs such as Cloudflare WARP.</li>
         <li><b>“User cannot accept your call”:</b> media encryption isn't SRTP, or PCMU/PCMA codecs are disabled.</li>
         <li><b>Call drops after ~30 seconds:</b> Outbound proxy is off — turn it on.</li>
-        <li><b>No audio or one-way audio:</b> allow Linphone through the firewall, and turn off VPNs.</li>
+        <li><b>Call connects but no sound at all:</b> open the Dashboard and run the Setup check. If “Call audio address” is red, the server's public IP changed: update <span class="font-mono">PBX_PUBLIC_IP</span> in Coolify and redeploy.</li>
+        <li><b>One-way audio:</b> turn OFF “Allow IPv6” in Linphone, check the microphone in Linphone → Settings → Audio and Windows microphone privacy, allow Linphone through the firewall, and turn off VPNs.</li>
+        <li><b>Port is not 5061:</b> the sign-in form cannot set a port. Use the automatic setup link above, or put the full server address (with <span class="font-mono">&lt; &gt;</span>) in Proxy server URL with Outgoing proxy ON.</li>
       </ul>
     </div>
   </div>
