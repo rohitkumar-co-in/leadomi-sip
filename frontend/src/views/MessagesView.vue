@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { MessageSquare, Send, RefreshCw, ArrowLeft } from 'lucide-vue-next'
 import api from '@/api/client'
 import {dateTime} from '@/utils/display'
@@ -71,8 +72,12 @@ const recipient=ref('')
 const singleNumber=computed(()=>dids.value.length===1)
 watch(selectedDID,()=>{messageRequest++;selectedMessages.value=[];selectedConversations.value=[];selectedConversation.value=null;messages.value=[];hasOlderMessages.value=false;sendingDID.value=selectedDID.value;loadConversations()})
 
+const route=useRoute()
 onMounted(async () => {
   await loadDIDs();await loadConversations()
+  // Opened from the Dialer: jump to that number's conversation or start one.
+  const to=typeof route.query.to==='string'?route.query.to:''
+  if(/^\+[1-9]\d{7,14}$/.test(to)){recipient.value=to;if(conversations.value.some(conv=>conv.phone_number===to)){selectedConversation.value=to;await loadMessages(to)}}
 })
 
 async function loadDIDs() {
